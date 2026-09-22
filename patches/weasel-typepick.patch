@@ -157,7 +157,7 @@ index 709cd7e..13695e8 100644
    }
  
 diff --git a/RimeWithWeasel/RimeWithWeasel.vcxproj b/RimeWithWeasel/RimeWithWeasel.vcxproj
-index 5a1e7f7..4a1e0de 100644
+index ac5b0bf..451b4ce 100644
 --- a/RimeWithWeasel/RimeWithWeasel.vcxproj
 +++ b/RimeWithWeasel/RimeWithWeasel.vcxproj
 @@ -288,6 +288,26 @@
@@ -468,7 +468,7 @@ index 8b6b571..1819d61 100644
        <AdditionalLibraryDirectories>$(SolutionDir)\lib;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
        <GenerateDebugInformation>false</GenerateDebugInformation>
 diff --git a/WeaselServer/WeaselServerApp.cpp b/WeaselServer/WeaselServerApp.cpp
-index b398fe6..3b9f136 100644
+index 6696b98..100d29e 100644
 --- a/WeaselServer/WeaselServerApp.cpp
 +++ b/WeaselServer/WeaselServerApp.cpp
 @@ -16,17 +16,7 @@ int WeaselServerApp::Run() {
@@ -521,7 +521,7 @@ index b398fe6..3b9f136 100644
                            std::bind(open, L"https://rime.im/docs/"));
    m_server.AddMenuHandler(ID_WEASELTRAY_HOMEPAGE,
 diff --git a/WeaselServer/WeaselServerApp.h b/WeaselServer/WeaselServerApp.h
-index 2813863..1f08ec3 100644
+index d5e32e0..ab33ea2 100644
 --- a/WeaselServer/WeaselServerApp.h
 +++ b/WeaselServer/WeaselServerApp.h
 @@ -34,19 +34,7 @@ class WeaselServerApp {
@@ -546,7 +546,7 @@ index 2813863..1f08ec3 100644
  
    static fs::path install_dir() {
 diff --git a/WeaselServer/WeaselService.h b/WeaselServer/WeaselService.h
-index 513fedf..ccef327 100644
+index 28927fb..8c63614 100644
 --- a/WeaselServer/WeaselService.h
 +++ b/WeaselServer/WeaselService.h
 @@ -5,7 +5,7 @@
@@ -559,7 +559,7 @@ index 513fedf..ccef327 100644
  class WeaselService {
   public:
 diff --git a/WeaselTSF/Globals.cpp b/WeaselTSF/Globals.cpp
-index c9c8d4c..90f6636 100644
+index c5d28b9..3332552 100644
 --- a/WeaselTSF/Globals.cpp
 +++ b/WeaselTSF/Globals.cpp
 @@ -8,32 +8,16 @@ LONG g_cRefDll = -1;
@@ -610,7 +610,7 @@ index c9c8d4c..90f6636 100644
 -    {0xa9, 0x6d, 0xce, 0xc7, 0xc5, 0x0e, 0x0e, 0xae}};
 +const GUID GUID_IME_MODE_PRESERVED_KEY = {0xe54c4535, 0x6993, 0x54d6, {0xbf, 0x45, 0x0f, 0x69, 0xed, 0x25, 0xab, 0x81}};
 diff --git a/WeaselTSF/LanguageBar.cpp b/WeaselTSF/LanguageBar.cpp
-index 82ef6a8..78a11e2 100644
+index 41d8f0d..8a6eb19 100644
 --- a/WeaselTSF/LanguageBar.cpp
 +++ b/WeaselTSF/LanguageBar.cpp
 @@ -37,9 +37,9 @@ static void HMENU2ITfMenu(HMENU hMenu, ITfMenu* pTfMenu) {
@@ -640,7 +640,7 @@ index 82ef6a8..78a11e2 100644
        }
        if (!dir.empty() && fs::exists(dir))
 diff --git a/WeaselTSF/Register.cpp b/WeaselTSF/Register.cpp
-index f84df97..aa75faf 100644
+index ec44839..cc98479 100644
 --- a/WeaselTSF/Register.cpp
 +++ b/WeaselTSF/Register.cpp
 @@ -31,7 +31,7 @@ HKL FindIME(LANGID langid) {
@@ -703,6 +703,28 @@ index 53290b0..893e344 100644
                count++;
            } while (Process32Next(snap, &pe));
          }
+diff --git a/include/RimeWithWeasel.h b/include/RimeWithWeasel.h
+index ab20d8d..d10d51f 100644
+--- a/include/RimeWithWeasel.h
++++ b/include/RimeWithWeasel.h
+@@ -4,6 +4,9 @@
+ #include <map>
+ #include <string>
+ #include <mutex>
++#include <memory>
++
++namespace typepick { class WeaselBridge; }
+ 
+ #include <rime_api.h>
+ 
+@@ -95,6 +98,7 @@ class RimeWithWeaselHandler : public weasel::RequestHandler {
+     return m_session_status_map[ipc_id] = SessionStatus();
+   }
+ 
++  std::unique_ptr<typepick::WeaselBridge> m_typepick;
+   AppOptionsByAppName m_app_options;
+   weasel::UI* m_ui;  // reference
+   DWORD m_active_session;
 diff --git a/include/WeaselConstants.h b/include/WeaselConstants.h
 index 09625e4..b22e114 100644
 --- a/include/WeaselConstants.h
@@ -733,7 +755,7 @@ index 27bfd63..9f5a1a0 100644
  #define WEASEL_IPC_METADATA_SIZE 1024
  #define WEASEL_IPC_BUFFER_SIZE (4 * 1024)
 diff --git a/include/WeaselUtility.h b/include/WeaselUtility.h
-index 742f157..b8026fd 100644
+index 742f157..b8026fd 100755
 --- a/include/WeaselUtility.h
 +++ b/include/WeaselUtility.h
 @@ -194,9 +194,9 @@ inline std::wstring get_weasel_ime_name() {
