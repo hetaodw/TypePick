@@ -84,3 +84,14 @@ jobs:
           path: |
             build/installer-test-results.json
             build/ipc-test.*.txt
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: TypePick-build-diagnostics
+          path: |
+            build/weasel/output/WeaselServer.exe
+            build/weasel/output/WeaselDeployer.exe
+            build/weasel/output/weaselx64.dll
+            build/weasel/output/rime.dll
+            build/core-native/TypePick.exe
+            build/package/**
