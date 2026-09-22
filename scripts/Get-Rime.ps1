@@ -8,7 +8,7 @@ $url = 'https://github.com/rime/librime/releases/download/1.17.0/rime-33e7814-Wi
 New-Item -ItemType Directory -Force -Path $Destination | Out-Null
 $archive = Join-Path $Destination 'rime.7z'
 if (!(Test-Path -LiteralPath $archive)) {
-    Invoke-WebRequest -Uri $url -OutFile "$archive.part"
+    Invoke-WebRequest -Uri $url -OutFile "$archive.part" -TimeoutSec 180
     if ((Get-FileHash -LiteralPath "$archive.part" -Algorithm SHA256).Hash -ne $expected) { throw 'Rime archive checksum mismatch.' }
     Move-Item -LiteralPath "$archive.part" -Destination $archive
 }

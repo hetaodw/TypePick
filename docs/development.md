@@ -35,7 +35,7 @@ b2 -j4 --with-filesystem --with-json --with-locale --with-regex --with-serializa
 
 必须与小狼毫所用工具集一致；Boost 较老版本可能不认识更新的 MSVC，优先用 VS2022/v143。Boost 官方下载与许可证见 [Boost 1.84.0](https://www.boost.org/releases/1.84.0/)。
 
-也可运行 `./scripts/Build-Boost.ps1` 自动下载校验并编译到 `build/deps/boost/boost_1_84_0`。GitHub Actions 中另有完整小狼毫构建任务，使用带 ATL 的 Windows 2022 开发环境。
+也可运行 `./scripts/Build-Boost.ps1` 从 Boost 官方 GitHub release 下载并校验模块化源码包，编译到 `build/deps/boost/boost-1.84.0`。GitHub Actions 中另有完整小狼毫构建任务，使用带 ATL 的 Windows 2022 开发环境。
 
 ```powershell
 ./scripts/Build-Weasel.ps1 -BoostRoot C:/deps/boost_1_84_0 -PlatformToolset v143
