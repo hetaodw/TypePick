@@ -10,6 +10,10 @@ function Enter-TypePickToolchain {
     if (!(Test-Path -LiteralPath $vswhere)) { throw 'Install Visual Studio C++ Build Tools and Windows SDK.' }
     $vsPath = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
     if (!$vsPath) { throw 'Visual Studio C++ toolchain was not found.' }
-    & (Join-Path $vsPath 'Common7\Tools\Launch-VsDevShell.ps1') -Arch amd64 -HostArch amd64 -SkipAutomaticLocation -NoLogo | Out-Null
+    $launch = Join-Path $vsPath 'Common7\Tools\Launch-VsDevShell.ps1'
+    $launchArgs = @{ Arch = 'amd64'; HostArch = 'amd64'; SkipAutomaticLocation = $true }
+    # NoLogo was added after VS2022; keep the same script usable on both versions.
+    if ((Get-Command $launch).Parameters.ContainsKey('NoLogo')) { $launchArgs.NoLogo = $true }
+    & $launch @launchArgs | Out-Null
     return $vsPath
 }
