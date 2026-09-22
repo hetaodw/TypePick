@@ -6,6 +6,13 @@ if (!(Test-Path -LiteralPath (Join-Path $env:VCToolsInstallDir 'atlmfc/include/a
     throw 'Full Weasel build requires the Visual Studio C++ ATL component. Core/probe builds do not require ATL.'
 }
 $BoostRoot = (Resolve-Path -LiteralPath $BoostRoot).Path
+# GitHub cache archives do not retain all Boost header directory junctions.
+# Recreate the aggregate include tree from the cached source modules every run.
+Push-Location $BoostRoot
+try {
+    & ./b2.exe -a headers
+    Assert-NativeExit 'Restore Boost header junctions'
+} finally { Pop-Location }
 if (!(Test-Path -LiteralPath (Join-Path $BoostRoot 'boost/version.hpp')) -or !(Test-Path -LiteralPath (Join-Path $BoostRoot 'stage/lib'))) {
     throw 'Boost headers and prebuilt x64 static libraries are required. See docs/development.md.'
 }
