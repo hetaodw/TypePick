@@ -46,7 +46,9 @@ cd TypePick
 
 完成小狼毫开发构建后，将 [config/typepick.example.json](config/typepick.example.json) 复制为小狼毫**用户资料目录**中的 `typepick.json`，将 `enabled` 改为 `true`。`mode: "demo"` 是本地演示；`mode: "jev"` 才会调用远端模型。重启开发版服务端后生效。
 
-Jev 密钥从服务端进程的 `TYPESAFE_API_KEY` 环境变量读取，程序不读取 `.env`，也不把密钥写入配置或日志。API 契约采用 [TypeSafe 官方文档](https://docs.typesafe.ai/introduction/quickstart)。
+Jev 密钥从服务端进程的 `TYPESAFE_API_KEY` 环境变量读取，服务端本身不读取 `.env`，也不把密钥写入配置或日志。API 契约采用 [TypeSafe 官方文档](https://docs.typesafe.ai/introduction/quickstart)。
+
+本地联调支持项目根目录 `.env` 中仅一行 `key="你的密钥"`，运行 `./scripts/Test-Jev.ps1` 即可。脚本只向测试进程临时注入环境变量，结束后恢复，不执行文件内容。它发送两个固定测试句子，默认采用 3000 ms **诊断时限**；不改变输入法的默认 600 ms 时限或 0.7 置信度门槛。实际请求及 Rime 上屏已验证，详见验证记录。
 
 远端请求包含当前拼音、当前页最多 10 个候选，以及本输入法在当前连续输入段中已经上屏的最近约 100 个 UTF-16 单元。不会读取整篇文档；本段文字仍可能含私人信息，应只在愿意发送到模型服务的文本上启用。焦点、导航和会话变化会清空上下文。网络故障、密钥缺失、超时或低置信度时不显示推荐，普通输入继续工作。
 

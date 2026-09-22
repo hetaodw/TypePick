@@ -66,6 +66,18 @@ b2 -j4 --with-filesystem --with-json --with-locale --with-regex --with-serializa
 ./build/core-native/TypePickProbe.exe --rime C:/deps/rime/dist/lib/rime.dll --data ./data --user ./build/live-probe --live --input yanjiu --context '这个问题需要进一步'
 ```
 
+也可以在根目录 `.env` 中只填写一行 `key="你的密钥"`（或 `TYPESAFE_API_KEY="你的密钥"`），然后运行：
+
+```powershell
+./scripts/Test-Jev.ps1
+# 复现输入法默认时限；如果请求超时，该测试会返回失败。
+./scripts/Test-Jev.ps1 -TimeoutMs 600
+```
+
+脚本只使用固定的两个合成句子，仅读取文件中的字面值，不执行 PowerShell 内容。密钥临时映射到当前测试进程的 `TYPESAFE_API_KEY`，结束时恢复此前值。结果保存在 `build/live-probes/<编号>/results.json`，仅含测试文本、候选、状态、耗时、置信度和可能的上屏文本。`uncertain` 或 `abstained` 表示 API 已回应但未采用，不能等同于推荐成功。
+
+默认诊断时限为 3000 ms，独立工具也可指定 `--timeout-ms 3000`。这不修改正式配置。2026-09-22 的两次原生真实请求分别耗时 714 / 809 ms，默认 600 ms 在这次环境中不足；这些少量样本不构成延迟分布或中文准确率评测。
+
 读取输出中的 `status`：`recommended` 表示答案通过校验；`missing_api_key`、`timeout`、`uncertain`、`abstained`、`http_XXX` 等表示不采用。命令执行成功不等于模型选对，仍需中文歧义词数据集评测。工具无推荐时不伪造上屏结果。
 
 本版无设置界面、托盘错误提示、请求缓存、全应用敏感输入检测或安装器。现有验证范围见 `verification.md`。

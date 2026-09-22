@@ -16,7 +16,14 @@ int wmain(int argc, wchar_t** argv) {
       else throw std::runtime_error("missing argument");
     }
     if (!args.count(L"--rime") || !args.count(L"--data") || !args.count(L"--user"))
-      throw std::runtime_error("usage: TypePickProbe --rime rime.dll --data data --user scratch [--demo|--live|--bridge-smoke] [--input yanjiu] [--context text]");
+      throw std::runtime_error("usage: TypePickProbe --rime rime.dll --data data --user scratch [--demo|--live|--bridge-smoke] [--input yanjiu] [--context text] [--timeout-ms 100..3000]");
+    Config probe_config;
+    if (args.count(L"--timeout-ms")) {
+      const auto& value = args[L"--timeout-ms"];
+      if (value.empty() || value.find_first_not_of(L"0123456789") != std::wstring::npos)
+        throw std::runtime_error("invalid timeout; expected 100..3000 milliseconds");
+      probe_config = ParseConfig({{"timeout_ms", std::stoi(value)}});
+    }
     const auto dll = std::filesystem::absolute(args[L"--rime"]);
     HMODULE module = LoadLibraryExW(dll.c_str(), nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
     if (!module) throw std::runtime_error("could not load rime.dll");
@@ -91,14 +98,18 @@ int wmain(int argc, wchar_t** argv) {
       api->free_context(&ctx);
       result["candidates"] = snap.candidates;
       if (args.count(L"--demo") || args.count(L"--live")) {
-        Config c; c.enabled = true; c.debounce_ms = 0;
+        Config c = probe_config; c.enabled = true; c.debounce_ms = 0;
         c.mode = args.count(L"--live") ? "jev" : "demo";
+        const auto started = Clock::now();
         Selector selector(c, CallJev); selector.Submit(snap);
         const auto deadline = Clock::now() + std::chrono::seconds(5);
         while (Clock::now() < deadline && !selector.Poll()) Sleep(5);
         const auto recommendation = selector.Poll();
         if (!recommendation) throw std::runtime_error("recommendation did not finish");
         result["mode"] = c.mode; result["status"] = recommendation->decision.status;
+        result["confidence"] = recommendation->decision.confidence;
+        result["timeout_ms"] = c.timeout_ms;
+        result["elapsed_ms"] = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count();
         if (recommendation->decision.index) api->select_candidate_on_current_page(sid, *recommendation->decision.index);
       }
     }
