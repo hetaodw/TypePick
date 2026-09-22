@@ -1,0 +1,44 @@
+name: Native recommendation and Rime bridge
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build and test native module
+        shell: pwsh
+        run: ./scripts/Build-Core.ps1
+      - name: Test real Rime candidates and invalidation
+        shell: pwsh
+        run: ./scripts/Test-Rime.ps1
+      - name: Verify pinned Weasel integration patch
+        shell: pwsh
+        run: ./scripts/Prepare-Weasel.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-test-evidence
+          path: |
+            build/probes/**/results.json
+            build/core-native/Testing/Temporary/LastTest.log
+  weasel:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build pinned Boost with the runner toolchain
+        shell: pwsh
+        run: ./scripts/Build-Boost.ps1
+      - name: Build patched WeaselServer and TSF x64
+        shell: pwsh
+        run: ./scripts/Build-Weasel.ps1 -BoostRoot ./build/deps/boost/boost_1_84_0

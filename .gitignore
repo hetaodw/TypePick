@@ -1,0 +1,12 @@
+# Local research downloads and scratch work are not project dependencies.
+.work/
+
+# Build outputs and machine-local configuration.
+build/
+dist/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.venv/

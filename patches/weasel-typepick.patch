@@ -1,0 +1,265 @@
+diff --git a/RimeWithWeasel/RimeWithWeasel.cpp b/RimeWithWeasel/RimeWithWeasel.cpp
+index 709cd7e..bf9bc45 100644
+--- a/RimeWithWeasel/RimeWithWeasel.cpp
++++ b/RimeWithWeasel/RimeWithWeasel.cpp
+@@ -1,6 +1,8 @@
+ ﻿#include "stdafx.h"
+ #include <logging.h>
+ #include <RimeWithWeasel.h>
++// TypePick modifications: asynchronous opt-in candidate recommendation, 2026.
++#include <typepick/weasel_bridge.h>
+ #include <StringAlgorithm.hpp>
+ #include <WeaselConstants.h>
+ #include <WeaselUtility.h>
+@@ -144,9 +146,11 @@ void RimeWithWeaselHandler::Initialize() {
+     rime_api->config_close(&config);
+   }
+   m_last_schema_id.clear();
++  m_typepick = std::make_unique<typepick::WeaselBridge>(rime_api, WeaselUserDataPath());
+ }
+ 
+ void RimeWithWeaselHandler::Finalize() {
++  m_typepick.reset();
+   m_active_session = 0;
+   m_disabled = true;
+   m_session_status_map.clear();
+@@ -215,6 +219,7 @@ DWORD RimeWithWeaselHandler::AddSession(LPWSTR buffer, EatLine eat) {
+ }
+ 
+ DWORD RimeWithWeaselHandler::RemoveSession(WeaselSessionId ipc_id) {
++  if (m_typepick) m_typepick->Reset();
+   if (m_ui)
+     m_ui->Hide();
+   if (m_disabled)
+@@ -269,8 +274,10 @@ BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
+   if (m_disabled)
+     return FALSE;
+   RimeSessionId session_id = to_session_id(ipc_id);
+-  Bool handled = rime_api->process_key(session_id, keyEvent.keycode,
+-                                       expand_ibus_modifier(keyEvent.mask));
++  Bool handled = m_typepick && m_typepick->BeforeKey(session_id, keyEvent.keycode, keyEvent.mask);
++  if (!handled)
++    handled = rime_api->process_key(session_id, keyEvent.keycode,
++                                   expand_ibus_modifier(keyEvent.mask));
+   // vim_mode when keydown only
+   if (!handled && !(keyEvent.mask & ibus::Modifier::RELEASE_MASK)) {
+     bool isVimBackInCommandMode =
+@@ -286,12 +293,14 @@ BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
+     }
+   }
+   _Respond(ipc_id, eat);
++  if (m_typepick) m_typepick->AfterKey(session_id, keyEvent.keycode, keyEvent.mask);
+   _UpdateUI(ipc_id);
+   m_active_session = ipc_id;
+   return (BOOL)handled;
+ }
+ 
+ void RimeWithWeaselHandler::CommitComposition(WeaselSessionId ipc_id) {
++  if (m_typepick) m_typepick->Reset();
+   DLOG(INFO) << "Commit composition: ipc_id = " << ipc_id;
+   if (m_disabled)
+     return;
+@@ -301,6 +310,7 @@ void RimeWithWeaselHandler::CommitComposition(WeaselSessionId ipc_id) {
+ }
+ 
+ void RimeWithWeaselHandler::ClearComposition(WeaselSessionId ipc_id) {
++  if (m_typepick) m_typepick->Reset();
+   DLOG(INFO) << "Clear composition: ipc_id = " << ipc_id;
+   if (m_disabled)
+     return;
+@@ -316,6 +326,7 @@ void RimeWithWeaselHandler::SelectCandidateOnCurrentPage(
+              << ", index = " << index;
+   if (m_disabled)
+     return;
++  if (m_typepick) m_typepick->Reset();
+   rime_api->select_candidate_on_current_page(to_session_id(ipc_id), index);
+ }
+ 
+@@ -325,6 +336,7 @@ bool RimeWithWeaselHandler::HighlightCandidateOnCurrentPage(
+     EatLine eat) {
+   DLOG(INFO) << "highlight candidate on current page, ipc_id = " << ipc_id
+              << ", index = " << index;
++  if (m_typepick) m_typepick->Reset();
+   bool res = rime_api->highlight_candidate_on_current_page(
+       to_session_id(ipc_id), index);
+   _Respond(ipc_id, eat);
+@@ -337,6 +349,7 @@ bool RimeWithWeaselHandler::ChangePage(bool backward,
+                                        EatLine eat) {
+   DLOG(INFO) << "change page, ipc_id = " << ipc_id
+              << (backward ? "backward" : "foreward");
++  if (m_typepick) m_typepick->Reset();
+   bool res = rime_api->change_page(to_session_id(ipc_id), backward);
+   _Respond(ipc_id, eat);
+   _UpdateUI(ipc_id);
+@@ -344,6 +357,7 @@ bool RimeWithWeaselHandler::ChangePage(bool backward,
+ }
+ 
+ void RimeWithWeaselHandler::FocusIn(DWORD client_caps, WeaselSessionId ipc_id) {
++  if (m_typepick) m_typepick->Reset();
+   DLOG(INFO) << "Focus in: ipc_id = " << ipc_id
+              << ", client_caps = " << client_caps;
+   if (m_disabled)
+@@ -353,6 +367,7 @@ void RimeWithWeaselHandler::FocusIn(DWORD client_caps, WeaselSessionId ipc_id) {
+ }
+ 
+ void RimeWithWeaselHandler::FocusOut(DWORD param, WeaselSessionId ipc_id) {
++  if (m_typepick) m_typepick->Reset();
+   DLOG(INFO) << "Focus out: ipc_id = " << ipc_id;
+   if (m_ui)
+     m_ui->Hide();
+@@ -364,6 +379,10 @@ void RimeWithWeaselHandler::UpdateInputPosition(RECT const& rc,
+   DLOG(INFO) << "Update input position: (" << rc.left << ", " << rc.top
+              << "), ipc_id = " << ipc_id
+              << ", m_active_session = " << m_active_session;
++  if (m_typepick) {
++    if (m_active_session != ipc_id) m_typepick->Reset();
++    m_typepick->Position(rc);
++  }
+   if (m_ui)
+     m_ui->UpdateInputPosition(rc);
+   if (m_disabled)
+@@ -489,6 +508,7 @@ void RimeWithWeaselHandler::EndMaintenance() {
+ void RimeWithWeaselHandler::SetOption(WeaselSessionId ipc_id,
+                                       const std::string& opt,
+                                       bool val) {
++  if (m_typepick) m_typepick->Reset();
+   // from no-session client, not actual typing session
+   if (!ipc_id) {
+     if (m_global_ascii_mode && opt == "ascii_mode") {
+@@ -751,6 +771,7 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
+     actions.push_back("commit");
+     std::wstring commit_text_w = escape_string(u8tow(commit.text));
+     body.append(L"commit=").append(commit_text_w).append(L"\n");
++    if (m_typepick) m_typepick->OnCommit(session_id, commit.text);
+     rime_api->free_commit(&commit);
+   }
+ 
+diff --git a/RimeWithWeasel/RimeWithWeasel.vcxproj b/RimeWithWeasel/RimeWithWeasel.vcxproj
+index ac5b0bf..451b4ce 100644
+--- a/RimeWithWeasel/RimeWithWeasel.vcxproj
++++ b/RimeWithWeasel/RimeWithWeasel.vcxproj
+@@ -288,6 +288,26 @@
+       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+     </ProjectReference>
+   </ItemGroup>
++  <!-- TypePick sources are copied by scripts/Prepare-Weasel.ps1. -->
++  <ItemDefinitionGroup>
++    <ClCompile>
++      <AdditionalIncludeDirectories>$(SolutionDir)typepick\native\include;$(SolutionDir)typepick\third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++    </ClCompile>
++  </ItemDefinitionGroup>
++  <ItemGroup>
++    <ClCompile Include="..\typepick\native\src\selector.cpp">
++      <PrecompiledHeader>NotUsing</PrecompiledHeader>
++      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++    </ClCompile>
++    <ClCompile Include="..\typepick\native\src\jev_client_win.cpp">
++      <PrecompiledHeader>NotUsing</PrecompiledHeader>
++      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++    </ClCompile>
++    <ClCompile Include="..\typepick\native\src\weasel_bridge_win.cpp">
++      <PrecompiledHeader>NotUsing</PrecompiledHeader>
++      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
++    </ClCompile>
++  </ItemGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+   <ImportGroup Label="ExtensionTargets">
+   </ImportGroup>
+diff --git a/WeaselServer/WeaselServer.vcxproj b/WeaselServer/WeaselServer.vcxproj
+index 8b6b571..ed3a2e0 100644
+--- a/WeaselServer/WeaselServer.vcxproj
++++ b/WeaselServer/WeaselServer.vcxproj
+@@ -165,7 +165,7 @@
+       <AdditionalIncludeDirectories>$(IntDir);$(SolutionDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ResourceCompile>
+     <Link>
+-      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+       <AdditionalLibraryDirectories>$(SolutionDir)\lib;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+       <GenerateDebugInformation>true</GenerateDebugInformation>
+       <SubSystem>Windows</SubSystem>
+@@ -212,7 +212,7 @@
+       <AdditionalIncludeDirectories>$(IntDir);$(SolutionDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ResourceCompile>
+     <Link>
+-      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+       <AdditionalLibraryDirectories>$(SolutionDir)\lib;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+       <GenerateDebugInformation>true</GenerateDebugInformation>
+       <SubSystem>Windows</SubSystem>
+@@ -255,7 +255,7 @@
+       <AdditionalIncludeDirectories>$(IntDir);$(SolutionDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ResourceCompile>
+     <Link>
+-      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+       <AdditionalLibraryDirectories>$(SolutionDir)\lib64;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+       <GenerateDebugInformation>true</GenerateDebugInformation>
+       <SubSystem>Windows</SubSystem>
+@@ -297,7 +297,7 @@
+       <AdditionalIncludeDirectories>$(IntDir);$(SolutionDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ResourceCompile>
+     <Link>
+-      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+       <AdditionalLibraryDirectories>$(SolutionDir)\lib;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+       <GenerateDebugInformation>true</GenerateDebugInformation>
+       <SubSystem>Windows</SubSystem>
+@@ -333,7 +333,7 @@
+       <AdditionalIncludeDirectories>$(IntDir);$(SolutionDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ResourceCompile>
+     <Link>
+-      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+       <OutputFile>$(SolutionDir)\output\Win32\$(ProjectName).exe</OutputFile>
+       <AdditionalLibraryDirectories>$(SolutionDir)\lib;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+       <SubSystem>Windows</SubSystem>
+@@ -379,7 +379,7 @@
+       <AdditionalIncludeDirectories>$(IntDir);$(SolutionDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ResourceCompile>
+     <Link>
+-      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+       <OutputFile>$(SolutionDir)\output\$(ProjectName).exe</OutputFile>
+       <AdditionalLibraryDirectories>$(SolutionDir)\lib;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+       <SubSystem>Windows</SubSystem>
+@@ -424,7 +424,7 @@
+       <AdditionalIncludeDirectories>$(IntDir);$(SolutionDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ResourceCompile>
+     <Link>
+-      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+       <OutputFile>$(SolutionDir)\output\$(ProjectName).exe</OutputFile>
+       <AdditionalLibraryDirectories>$(SolutionDir)\lib64;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+       <GenerateDebugInformation>true</GenerateDebugInformation>
+@@ -467,7 +467,7 @@
+       <AdditionalIncludeDirectories>$(IntDir);$(SolutionDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ResourceCompile>
+     <Link>
+-      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+       <OutputFile>$(SolutionDir)\output\$(ProjectName).exe</OutputFile>
+       <AdditionalLibraryDirectories>$(SolutionDir)\lib;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+       <GenerateDebugInformation>false</GenerateDebugInformation>
+diff --git a/include/RimeWithWeasel.h b/include/RimeWithWeasel.h
+index ab20d8d..d10d51f 100644
+--- a/include/RimeWithWeasel.h
++++ b/include/RimeWithWeasel.h
+@@ -4,6 +4,9 @@
+ #include <map>
+ #include <string>
+ #include <mutex>
++#include <memory>
++
++namespace typepick { class WeaselBridge; }
+ 
+ #include <rime_api.h>
+ 
+@@ -95,6 +98,7 @@ class RimeWithWeaselHandler : public weasel::RequestHandler {
+     return m_session_status_map[ipc_id] = SessionStatus();
+   }
+ 
++  std::unique_ptr<typepick::WeaselBridge> m_typepick;
+   AppOptionsByAppName m_app_options;
+   weasel::UI* m_ui;  // reference
+   DWORD m_active_session;

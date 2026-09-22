@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+config_version: "0.1"
+schema_list:
+  - schema: typepick_demo
+menu:
+  page_size: 9

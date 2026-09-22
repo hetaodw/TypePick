@@ -1,0 +1,2 @@
+# Preserve upstream CRLF context inside the integration patch byte-for-byte.
+*.patch -text -whitespace

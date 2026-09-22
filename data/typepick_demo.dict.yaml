@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Hand-authored test fixture; no upstream dictionary imported.
+---
+name: typepick_demo
+version: "0.1"
+sort: by_weight
+...
+研究	yan jiu	1000
+烟酒	yan jiu	800
+眼睛	yan jing	900
+这个	zhe ge	1000
+问题	wen ti	1000
+需要	xu yao	1000
+进一步	jin yi bu	1000
+这家	zhe jia	1000
+商店	shang dian	1000
+主要	zhu yao	1000
+卖	mai	1000
+你好	ni hao	1000
+中国	zhong guo	1000
+输入	shu ru	1000
+输入法	shu ru fa	1000
+候选	hou xuan	1000
+选择	xuan ze	1000
+世界	shi jie	1000
+时间	shi jian	1000
+事件	shi jian	800
+实现	shi xian	1000
+视线	shi xian	800

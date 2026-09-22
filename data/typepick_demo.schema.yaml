@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Small first-party fixture, NOT a general-purpose production dictionary.
+schema:
+  schema_id: typepick_demo
+  name: TypePick 验证词库
+  version: "0.1"
+switches:
+  - name: ascii_mode
+    reset: 0
+    states: [中文, ASCII]
+ascii_composer:
+  switch_key:
+    Shift_L: commit_code
+    Shift_R: commit_code
+engine:
+  processors: [ascii_composer, speller, selector, navigator, express_editor]
+  segmentors: [ascii_segmentor, abc_segmentor, fallback_segmentor]
+  translators: [script_translator]
+  filters: [uniquifier]
+speller:
+  alphabet: abcdefghijklmnopqrstuvwxyz
+  delimiter: " '"
+translator:
+  dictionary: typepick_demo
+  enable_user_dict: false
+  enable_completion: false
+menu:
+  page_size: 9
