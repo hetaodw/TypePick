@@ -13,6 +13,16 @@ if (!(Test-Path -LiteralPath $archive)) {
     Move-Item -LiteralPath "$archive.part" -Destination $archive
 }
 if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $expected) { throw 'Cached Rime archive checksum mismatch.' }
-& tar -xf $archive -C $Destination
+$sevenZip = Join-Path $TypePickRoot 'upstream/weasel/output/7z.exe'
+if (!(Test-Path -LiteralPath $sevenZip)) {
+    $installed = Get-Command 7z.exe -ErrorAction SilentlyContinue
+    if ($installed) { $sevenZip = $installed.Source }
+}
+# Older Windows tar builds cannot decode the LZMA codec in the official asset.
+if (Test-Path -LiteralPath $sevenZip) {
+    & $sevenZip x -y "-o$Destination" $archive | Out-Null
+} else {
+    & tar -xf $archive -C $Destination
+}
 Assert-NativeExit 'Extract librime'
 Write-Output (Join-Path $Destination 'dist')
