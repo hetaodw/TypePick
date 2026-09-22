@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+config_version: "0.1.0"
+schema_list:
+  - schema: typepick_pinyin
+menu:
+  page_size: 9
+switcher:
+  caption: TypePick
+  hotkeys: [Control+grave]

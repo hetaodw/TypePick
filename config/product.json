@@ -1,0 +1,11 @@
+{
+  "version": "0.1.0",
+  "architecture": "x64",
+  "guids": {
+    "c_clsidTextService": "603238AF-C1E4-5691-8B93-AE392BD3BCD1",
+    "c_guidProfile": "E694D465-DD53-59A9-ACBA-0765CF7A2C7D",
+    "c_guidLangBarItemButton": "A1D3E6B1-95AE-58C9-8828-AE3E76D919AA",
+    "c_guidDisplayAttributeInput": "E3C99D38-39C1-50BA-B231-4CA30E90E225",
+    "GUID_IME_MODE_PRESERVED_KEY": "E54C4535-6993-54D6-BF45-0F69ED25AB81"
+  }
+}

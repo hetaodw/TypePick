@@ -2,7 +2,13 @@
 
 基于 **Rime／小狼毫二次开发**的 Windows 中文输入法项目：Rime 生成候选，TypePick 在后台结合本次连续输入的上下文推荐候选，用户按 **Tab** 采用。
 
-当前是开发验证版。已完成原生 C++ 推荐模块、真实 librime 联调工具、小狼毫服务端接入补丁，并在云端编译通过小狼毫 x64 服务端和 TSF DLL；**尚未进行系统输入法安装及实际应用验收**。
+当前是 Windows x64 MVP，提供独立安装包、设置 EXE、简体拼音词库和 Jev 候选推荐。构建会在干净的 Windows 环境中执行安装、注册、真实服务进程选词及卸载检查；实际桌面应用兼容性仍需继续验收。首版不含 32 位或 ARM64 输入组件。
+
+## 安装使用
+
+运行 `TypePick-Setup-0.1.0-x64.exe`，从桌面打开“TypePick 设置”，点击“保存并启动”，再按 **Win + 空格**切换到 TypePick。若未显示，注销后重新登录。设置中导入自己的 `.env`（支持一行 `key="..."`），勾选 AI 推荐并保存；在记事本中出现 AI 浮窗时按 Tab 采用。密钥只存入本机 Windows 凭据管理器，不随安装包分发。
+
+安装包及对应源码由 GitHub Actions 的 `TypePick-Windows-x64` artifact 交付。构建和验证范围见 [Windows 发布说明](docs/windows-release.md)，操作步骤见 [使用说明](packaging/使用说明.txt)。
 
 ## 第一版交互
 

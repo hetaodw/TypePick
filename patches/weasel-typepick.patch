@@ -1,5 +1,5 @@
 diff --git a/RimeWithWeasel/RimeWithWeasel.cpp b/RimeWithWeasel/RimeWithWeasel.cpp
-index 709cd7e..bf9bc45 100644
+index 709cd7e..13695e8 100644
 --- a/RimeWithWeasel/RimeWithWeasel.cpp
 +++ b/RimeWithWeasel/RimeWithWeasel.cpp
 @@ -1,6 +1,8 @@
@@ -11,7 +11,20 @@ index 709cd7e..bf9bc45 100644
  #include <StringAlgorithm.hpp>
  #include <WeaselConstants.h>
  #include <WeaselUtility.h>
-@@ -144,9 +146,11 @@ void RimeWithWeaselHandler::Initialize() {
+@@ -97,9 +99,10 @@ void RimeWithWeaselHandler::_Setup() {
+   weasel_traits.distribution_name = distribution_name.c_str();
+   weasel_traits.distribution_code_name = WEASEL_CODE_NAME;
+   weasel_traits.distribution_version = WEASEL_VERSION;
+-  weasel_traits.app_name = "rime.weasel";
++  weasel_traits.app_name = "rime.typepick";
+   std::string log_dir = WeaselLogPath().u8string();
+-  weasel_traits.log_dir = log_dir.c_str();
++  weasel_traits.log_dir = "";
++  weasel_traits.min_log_level = 2;
+   rime_api->setup(&weasel_traits);
+   rime_api->set_notification_handler(&RimeWithWeaselHandler::OnNotify, this);
+ }
+@@ -144,9 +147,11 @@ void RimeWithWeaselHandler::Initialize() {
      rime_api->config_close(&config);
    }
    m_last_schema_id.clear();
@@ -23,7 +36,7 @@ index 709cd7e..bf9bc45 100644
    m_active_session = 0;
    m_disabled = true;
    m_session_status_map.clear();
-@@ -215,6 +219,7 @@ DWORD RimeWithWeaselHandler::AddSession(LPWSTR buffer, EatLine eat) {
+@@ -215,6 +220,7 @@ DWORD RimeWithWeaselHandler::AddSession(LPWSTR buffer, EatLine eat) {
  }
  
  DWORD RimeWithWeaselHandler::RemoveSession(WeaselSessionId ipc_id) {
@@ -31,7 +44,7 @@ index 709cd7e..bf9bc45 100644
    if (m_ui)
      m_ui->Hide();
    if (m_disabled)
-@@ -269,8 +274,10 @@ BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
+@@ -269,8 +275,10 @@ BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
    if (m_disabled)
      return FALSE;
    RimeSessionId session_id = to_session_id(ipc_id);
@@ -44,7 +57,7 @@ index 709cd7e..bf9bc45 100644
    // vim_mode when keydown only
    if (!handled && !(keyEvent.mask & ibus::Modifier::RELEASE_MASK)) {
      bool isVimBackInCommandMode =
-@@ -286,12 +293,14 @@ BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
+@@ -286,12 +294,14 @@ BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
      }
    }
    _Respond(ipc_id, eat);
@@ -59,7 +72,7 @@ index 709cd7e..bf9bc45 100644
    DLOG(INFO) << "Commit composition: ipc_id = " << ipc_id;
    if (m_disabled)
      return;
-@@ -301,6 +310,7 @@ void RimeWithWeaselHandler::CommitComposition(WeaselSessionId ipc_id) {
+@@ -301,6 +311,7 @@ void RimeWithWeaselHandler::CommitComposition(WeaselSessionId ipc_id) {
  }
  
  void RimeWithWeaselHandler::ClearComposition(WeaselSessionId ipc_id) {
@@ -67,7 +80,7 @@ index 709cd7e..bf9bc45 100644
    DLOG(INFO) << "Clear composition: ipc_id = " << ipc_id;
    if (m_disabled)
      return;
-@@ -316,6 +326,7 @@ void RimeWithWeaselHandler::SelectCandidateOnCurrentPage(
+@@ -316,6 +327,7 @@ void RimeWithWeaselHandler::SelectCandidateOnCurrentPage(
               << ", index = " << index;
    if (m_disabled)
      return;
@@ -75,7 +88,7 @@ index 709cd7e..bf9bc45 100644
    rime_api->select_candidate_on_current_page(to_session_id(ipc_id), index);
  }
  
-@@ -325,6 +336,7 @@ bool RimeWithWeaselHandler::HighlightCandidateOnCurrentPage(
+@@ -325,6 +337,7 @@ bool RimeWithWeaselHandler::HighlightCandidateOnCurrentPage(
      EatLine eat) {
    DLOG(INFO) << "highlight candidate on current page, ipc_id = " << ipc_id
               << ", index = " << index;
@@ -83,7 +96,7 @@ index 709cd7e..bf9bc45 100644
    bool res = rime_api->highlight_candidate_on_current_page(
        to_session_id(ipc_id), index);
    _Respond(ipc_id, eat);
-@@ -337,6 +349,7 @@ bool RimeWithWeaselHandler::ChangePage(bool backward,
+@@ -337,6 +350,7 @@ bool RimeWithWeaselHandler::ChangePage(bool backward,
                                         EatLine eat) {
    DLOG(INFO) << "change page, ipc_id = " << ipc_id
               << (backward ? "backward" : "foreward");
@@ -91,7 +104,7 @@ index 709cd7e..bf9bc45 100644
    bool res = rime_api->change_page(to_session_id(ipc_id), backward);
    _Respond(ipc_id, eat);
    _UpdateUI(ipc_id);
-@@ -344,6 +357,7 @@ bool RimeWithWeaselHandler::ChangePage(bool backward,
+@@ -344,6 +358,7 @@ bool RimeWithWeaselHandler::ChangePage(bool backward,
  }
  
  void RimeWithWeaselHandler::FocusIn(DWORD client_caps, WeaselSessionId ipc_id) {
@@ -99,7 +112,7 @@ index 709cd7e..bf9bc45 100644
    DLOG(INFO) << "Focus in: ipc_id = " << ipc_id
               << ", client_caps = " << client_caps;
    if (m_disabled)
-@@ -353,6 +367,7 @@ void RimeWithWeaselHandler::FocusIn(DWORD client_caps, WeaselSessionId ipc_id) {
+@@ -353,6 +368,7 @@ void RimeWithWeaselHandler::FocusIn(DWORD client_caps, WeaselSessionId ipc_id) {
  }
  
  void RimeWithWeaselHandler::FocusOut(DWORD param, WeaselSessionId ipc_id) {
@@ -107,7 +120,7 @@ index 709cd7e..bf9bc45 100644
    DLOG(INFO) << "Focus out: ipc_id = " << ipc_id;
    if (m_ui)
      m_ui->Hide();
-@@ -364,6 +379,10 @@ void RimeWithWeaselHandler::UpdateInputPosition(RECT const& rc,
+@@ -364,6 +380,10 @@ void RimeWithWeaselHandler::UpdateInputPosition(RECT const& rc,
    DLOG(INFO) << "Update input position: (" << rc.left << ", " << rc.top
               << "), ipc_id = " << ipc_id
               << ", m_active_session = " << m_active_session;
@@ -118,7 +131,7 @@ index 709cd7e..bf9bc45 100644
    if (m_ui)
      m_ui->UpdateInputPosition(rc);
    if (m_disabled)
-@@ -489,6 +508,7 @@ void RimeWithWeaselHandler::EndMaintenance() {
+@@ -489,6 +509,7 @@ void RimeWithWeaselHandler::EndMaintenance() {
  void RimeWithWeaselHandler::SetOption(WeaselSessionId ipc_id,
                                        const std::string& opt,
                                        bool val) {
@@ -126,7 +139,16 @@ index 709cd7e..bf9bc45 100644
    // from no-session client, not actual typing session
    if (!ipc_id) {
      if (m_global_ascii_mode && opt == "ascii_mode") {
-@@ -751,6 +771,7 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
+@@ -510,7 +531,7 @@ void RimeWithWeaselHandler::OnUpdateUI(std::function<void()> const& cb) {
+ }
+ 
+ bool RimeWithWeaselHandler::_IsDeployerRunning() {
+-  HANDLE hMutex = CreateMutex(NULL, TRUE, L"WeaselDeployerMutex");
++  HANDLE hMutex = CreateMutex(NULL, TRUE, L"TypePickDeployerMutex");
+   bool deployer_detected = hMutex && GetLastError() == ERROR_ALREADY_EXISTS;
+   if (hMutex) {
+     CloseHandle(hMutex);
+@@ -751,6 +772,7 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
      actions.push_back("commit");
      std::wstring commit_text_w = escape_string(u8tow(commit.text));
      body.append(L"commit=").append(commit_text_w).append(L"\n");
@@ -135,7 +157,7 @@ index 709cd7e..bf9bc45 100644
    }
  
 diff --git a/RimeWithWeasel/RimeWithWeasel.vcxproj b/RimeWithWeasel/RimeWithWeasel.vcxproj
-index ac5b0bf..451b4ce 100644
+index 5a1e7f7..4a1e0de 100644
 --- a/RimeWithWeasel/RimeWithWeasel.vcxproj
 +++ b/RimeWithWeasel/RimeWithWeasel.vcxproj
 @@ -288,6 +288,26 @@
@@ -165,8 +187,212 @@ index ac5b0bf..451b4ce 100644
    <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
    <ImportGroup Label="ExtensionTargets">
    </ImportGroup>
+diff --git a/RimeWithWeasel/WeaselUtility.cpp b/RimeWithWeasel/WeaselUtility.cpp
+index 9a07343..3006a31 100644
+--- a/RimeWithWeasel/WeaselUtility.cpp
++++ b/RimeWithWeasel/WeaselUtility.cpp
+@@ -5,7 +5,7 @@
+ 
+ fs::path WeaselUserDataPath() {
+   WCHAR _path[MAX_PATH] = {0};
+-  const WCHAR KEY[] = L"Software\\Rime\\Weasel";
++  const WCHAR KEY[] = L"Software\\TypePick";
+   HKEY hKey;
+   LSTATUS ret = RegOpenKey(HKEY_CURRENT_USER, KEY, &hKey);
+   if (ret == ERROR_SUCCESS) {
+@@ -20,7 +20,7 @@ fs::path WeaselUserDataPath() {
+     }
+   }
+   // default location
+-  ExpandEnvironmentStringsW(L"%AppData%\\Rime", _path, _countof(_path));
++  ExpandEnvironmentStringsW(L"%AppData%\\TypePick", _path, _countof(_path));
+   return fs::path(_path);
+ }
+ 
+diff --git a/WeaselDeployer/Configurator.cpp b/WeaselDeployer/Configurator.cpp
+index 1502322..fee07ae 100644
+--- a/WeaselDeployer/Configurator.cpp
++++ b/WeaselDeployer/Configurator.cpp
+@@ -42,9 +42,10 @@ void Configurator::Initialize() {
+   weasel_traits.distribution_name = distribution_name.c_str();
+   weasel_traits.distribution_code_name = WEASEL_CODE_NAME;
+   weasel_traits.distribution_version = WEASEL_VERSION;
+-  weasel_traits.app_name = "rime.weasel";
++  weasel_traits.app_name = "rime.typepick";
+   std::string log_dir = WeaselLogPath().u8string();
+-  weasel_traits.log_dir = log_dir.c_str();
++  weasel_traits.log_dir = "";
++  weasel_traits.min_log_level = 2;
+   RimeApi* rime_api = rime_get_api();
+   assert(rime_api);
+   rime_api->setup(&weasel_traits);
+@@ -114,9 +115,9 @@ int Configurator::Run(bool installing) {
+ }
+ 
+ int Configurator::UpdateWorkspace(bool report_errors) {
+-  HANDLE hMutex = CreateMutex(NULL, TRUE, L"WeaselDeployerMutex");
++  HANDLE hMutex = CreateMutex(NULL, TRUE, L"TypePickDeployerMutex");
+   if (!hMutex) {
+-    LOG(ERROR) << "Error creating WeaselDeployerMutex.";
++    LOG(ERROR) << "Error creating TypePickDeployerMutex.";
+     return 1;
+   }
+   if (GetLastError() == ERROR_ALREADY_EXISTS) {
+@@ -156,9 +157,9 @@ int Configurator::UpdateWorkspace(bool report_errors) {
+ }
+ 
+ int Configurator::DictManagement() {
+-  HANDLE hMutex = CreateMutex(NULL, TRUE, L"WeaselDeployerMutex");
++  HANDLE hMutex = CreateMutex(NULL, TRUE, L"TypePickDeployerMutex");
+   if (!hMutex) {
+-    LOG(ERROR) << "Error creating WeaselDeployerMutex.";
++    LOG(ERROR) << "Error creating TypePickDeployerMutex.";
+     return 1;
+   }
+   if (GetLastError() == ERROR_ALREADY_EXISTS) {
+@@ -196,9 +197,9 @@ int Configurator::DictManagement() {
+ }
+ 
+ int Configurator::SyncUserData() {
+-  HANDLE hMutex = CreateMutex(NULL, TRUE, L"WeaselDeployerMutex");
++  HANDLE hMutex = CreateMutex(NULL, TRUE, L"TypePickDeployerMutex");
+   if (!hMutex) {
+-    LOG(ERROR) << "Error creating WeaselDeployerMutex.";
++    LOG(ERROR) << "Error creating TypePickDeployerMutex.";
+     return 1;
+   }
+   if (GetLastError() == ERROR_ALREADY_EXISTS) {
+diff --git a/WeaselDeployer/SwitcherSettingsDialog.cpp b/WeaselDeployer/SwitcherSettingsDialog.cpp
+index 587cbc7..79b33cc 100644
+--- a/WeaselDeployer/SwitcherSettingsDialog.cpp
++++ b/WeaselDeployer/SwitcherSettingsDialog.cpp
+@@ -114,9 +114,9 @@ LRESULT SwitcherSettingsDialog::OnGetSchemata(WORD, WORD, HWND hWndCtl, BOOL&) {
+   HKEY hKey;
+   std::wstring hPath;
+   if (is_wow64())
+-    hPath = _T("Software\\WOW6432Node\\Rime\\Weasel");
++    hPath = _T("Software\\WOW6432Node\\TypePick");
+   else
+-    hPath = _T("Software\\Rime\\Weasel");
++    hPath = _T("Software\\TypePick");
+   LSTATUS ret = RegOpenKey(HKEY_LOCAL_MACHINE, hPath.c_str(), &hKey);
+   if (ret == ERROR_SUCCESS) {
+     WCHAR value[MAX_PATH];
+diff --git a/WeaselDeployer/WeaselDeployer.cpp b/WeaselDeployer/WeaselDeployer.cpp
+index a578014..678d49d 100644
+--- a/WeaselDeployer/WeaselDeployer.cpp
++++ b/WeaselDeployer/WeaselDeployer.cpp
+@@ -40,7 +40,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
+   CreateDirectory(WeaselUserDataPath().c_str(), NULL);
+ 
+   int ret = 0;
+-  HANDLE hMutex = CreateMutex(NULL, TRUE, L"WeaselDeployerExclusiveMutex");
++  HANDLE hMutex = CreateMutex(NULL, TRUE, L"TypePickDeployerExclusiveMutex");
+   if (!hMutex) {
+     ret = 1;
+   } else if (GetLastError() == ERROR_ALREADY_EXISTS) {
+@@ -69,7 +69,7 @@ static int Run(LPTSTR lpCmdLine) {
+       MessageBox(NULL, msg, L"Weasel Deployer", MB_ICONINFORMATION | MB_OK);
+     } else {
+       MessageBox(NULL,
+-                 L"Usage: WeaselDeployer.exe [options]\n"
++                 L"Usage: TypePickDeployer.exe [options]\n"
+                  L"/? or /help		- Show this help message\n"
+                  L"/deploy		- Update Workspace\n"
+                  L"/dict		- Manage dictionary\n"
+diff --git a/WeaselIPCServer/WeaselServerImpl.cpp b/WeaselIPCServer/WeaselServerImpl.cpp
+index 0c27644..2da8211 100644
+--- a/WeaselIPCServer/WeaselServerImpl.cpp
++++ b/WeaselIPCServer/WeaselServerImpl.cpp
+@@ -15,6 +15,8 @@ class PipeServer : public PipeChannel<DWORD, PipeMessage> {
+   PipeServer(std::wstring&& pn_cmd, SECURITY_ATTRIBUTES* s);
+ 
+  public:
++  ChannelContext* TakeContext() { return context.release(); }
++  void PutContext(ChannelContext* value) { context.reset(value); }
+   void Listen(ServerHandler const& handler);
+   /* Get a server runner */
+   ServerRunner GetServerRunner(ServerHandler const& handler);
+@@ -153,7 +155,7 @@ DWORD ServerImpl::OnCommand(WEASEL_IPC_COMMAND uMsg,
+ }
+ 
+ HWND ServerImpl::Start() {
+-  std::wstring instanceName = L"(WEASEL)Furandōru-Sukāretto-";
++  std::wstring instanceName = L"TypePick.Server-";
+   instanceName += getUsername();
+   HANDLE hMutexOneInstance = ::CreateMutex(NULL, FALSE, instanceName.c_str());
+   bool areYouOK = (::GetLastError() == ERROR_ALREADY_EXISTS ||
+@@ -175,6 +177,14 @@ int ServerImpl::Stop() {
+   return 0;
+ }
+ 
++// All Rime calls and the recommendation timer run on the server window thread.
++// The pipe worker waits only for local processing, never for a model request.
++struct TypePickDispatch {
++  PipeMessage message;
++  PipeServer::Respond respond;
++  PipeChannelBase::ChannelContext* context;
++  bool failed = false;
++};
+ static std::mutex g_api_mutex;
+ 
+ int ServerImpl::Run() {
+@@ -186,7 +196,10 @@ int ServerImpl::Run() {
+   //
+   auto listener = [this](PipeMessage msg, PipeServer::Respond resp) -> void {
+     std::lock_guard guard(g_api_mutex);
+-    HandlePipeMessage(msg, resp);
++    TypePickDispatch request{msg, resp, channel->TakeContext()};
++    SendMessage(WM_APP + 0x3a0, 0, reinterpret_cast<LPARAM>(&request));
++    channel->PutContext(request.context);
++    if (request.failed) throw DWORD(ERROR_BROKEN_PIPE);
+   };
+   pipeThread = std::make_unique<boost::thread>(
+       [this, &listener]() { channel->Listen(listener); });
+@@ -415,6 +428,16 @@ void ServerImpl::HandlePipeMessage(PipeMessage pipe_msg, _Resp resp) {
+   resp(result);
+ }
+ 
++LRESULT ServerImpl::OnTypePickDispatch(UINT, WPARAM, LPARAM lp, BOOL&) {
++  auto* request = reinterpret_cast<TypePickDispatch*>(lp);
++  // Transfer the per-connection TLS buffer while its owning worker is blocked.
++  channel->PutContext(request->context);
++  try { HandlePipeMessage(request->message, request->respond); }
++  catch (...) { request->failed = true; }
++  request->context = channel->TakeContext();
++  return 0;
++}
++
+ PipeServer::PipeServer(std::wstring&& pn_cmd, SECURITY_ATTRIBUTES* s)
+     : PipeChannel(std::move(pn_cmd), s) {}
+ 
+diff --git a/WeaselIPCServer/WeaselServerImpl.h b/WeaselIPCServer/WeaselServerImpl.h
+index e826d06..1ceeca9 100644
+--- a/WeaselIPCServer/WeaselServerImpl.h
++++ b/WeaselIPCServer/WeaselServerImpl.h
+@@ -29,8 +29,10 @@ class ServerImpl : public CWindowImpl<ServerImpl, CWindow, ServerWinTraits>
+   MESSAGE_HANDLER(WM_SETTINGCHANGE, OnColorChange)
+   MESSAGE_HANDLER(WM_COMMAND, OnCommand)
+   MESSAGE_HANDLER(WM_WEASEL_SERVICE_NOTIFY, OnServiceNotifyMessage)
++  MESSAGE_HANDLER(WM_APP + 0x3a0, OnTypePickDispatch)
+   END_MSG_MAP()
+ 
++  LRESULT OnTypePickDispatch(UINT, WPARAM, LPARAM, BOOL&);
+   LRESULT OnColorChange(UINT uMsg,
+                         WPARAM wParam,
+                         LPARAM lParam,
+diff --git a/WeaselServer/WeaselServer.cpp b/WeaselServer/WeaselServer.cpp
+index b4cf8b2..af88a00 100644
+--- a/WeaselServer/WeaselServer.cpp
++++ b/WeaselServer/WeaselServer.cpp
+@@ -1,4 +1,4 @@
+-﻿// WeaselServer.cpp : main source file for WeaselServer.exe
++﻿// WeaselServer.cpp : main source file for TypePickServer.exe
+ //
+ //	WTL MessageLoop 封装了消息循环. 实现了 getmessage/dispatchmessage....
+ 
 diff --git a/WeaselServer/WeaselServer.vcxproj b/WeaselServer/WeaselServer.vcxproj
-index 8b6b571..ed3a2e0 100644
+index 8b6b571..1819d61 100644
 --- a/WeaselServer/WeaselServer.vcxproj
 +++ b/WeaselServer/WeaselServer.vcxproj
 @@ -165,7 +165,7 @@
@@ -174,7 +400,7 @@ index 8b6b571..ed3a2e0 100644
      </ResourceCompile>
      <Link>
 -      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-+      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;advapi32.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
        <AdditionalLibraryDirectories>$(SolutionDir)\lib;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
        <GenerateDebugInformation>true</GenerateDebugInformation>
        <SubSystem>Windows</SubSystem>
@@ -183,7 +409,7 @@ index 8b6b571..ed3a2e0 100644
      </ResourceCompile>
      <Link>
 -      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-+      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;advapi32.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
        <AdditionalLibraryDirectories>$(SolutionDir)\lib;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
        <GenerateDebugInformation>true</GenerateDebugInformation>
        <SubSystem>Windows</SubSystem>
@@ -192,7 +418,7 @@ index 8b6b571..ed3a2e0 100644
      </ResourceCompile>
      <Link>
 -      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-+      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;advapi32.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
        <AdditionalLibraryDirectories>$(SolutionDir)\lib64;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
        <GenerateDebugInformation>true</GenerateDebugInformation>
        <SubSystem>Windows</SubSystem>
@@ -201,7 +427,7 @@ index 8b6b571..ed3a2e0 100644
      </ResourceCompile>
      <Link>
 -      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-+      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;advapi32.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
        <AdditionalLibraryDirectories>$(SolutionDir)\lib;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
        <GenerateDebugInformation>true</GenerateDebugInformation>
        <SubSystem>Windows</SubSystem>
@@ -210,7 +436,7 @@ index 8b6b571..ed3a2e0 100644
      </ResourceCompile>
      <Link>
 -      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-+      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;advapi32.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
        <OutputFile>$(SolutionDir)\output\Win32\$(ProjectName).exe</OutputFile>
        <AdditionalLibraryDirectories>$(SolutionDir)\lib;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
        <SubSystem>Windows</SubSystem>
@@ -219,7 +445,7 @@ index 8b6b571..ed3a2e0 100644
      </ResourceCompile>
      <Link>
 -      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-+      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;advapi32.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
        <OutputFile>$(SolutionDir)\output\$(ProjectName).exe</OutputFile>
        <AdditionalLibraryDirectories>$(SolutionDir)\lib;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
        <SubSystem>Windows</SubSystem>
@@ -228,7 +454,7 @@ index 8b6b571..ed3a2e0 100644
      </ResourceCompile>
      <Link>
 -      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-+      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;advapi32.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
        <OutputFile>$(SolutionDir)\output\$(ProjectName).exe</OutputFile>
        <AdditionalLibraryDirectories>$(SolutionDir)\lib64;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
        <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -237,29 +463,297 @@ index 8b6b571..ed3a2e0 100644
      </ResourceCompile>
      <Link>
 -      <AdditionalDependencies>imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-+      <AdditionalDependencies>winhttp.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
++      <AdditionalDependencies>winhttp.lib;advapi32.lib;imm32.lib;usp10.lib;rime.lib;%(AdditionalDependencies)</AdditionalDependencies>
        <OutputFile>$(SolutionDir)\output\$(ProjectName).exe</OutputFile>
        <AdditionalLibraryDirectories>$(SolutionDir)\lib;$(BOOST_ROOT)\stage\lib;$(SolutionDir)\librime\build\lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
        <GenerateDebugInformation>false</GenerateDebugInformation>
-diff --git a/include/RimeWithWeasel.h b/include/RimeWithWeasel.h
-index ab20d8d..d10d51f 100644
---- a/include/RimeWithWeasel.h
-+++ b/include/RimeWithWeasel.h
-@@ -4,6 +4,9 @@
- #include <map>
- #include <string>
- #include <mutex>
-+#include <memory>
-+
-+namespace typepick { class WeaselBridge; }
+diff --git a/WeaselServer/WeaselServerApp.cpp b/WeaselServer/WeaselServerApp.cpp
+index b398fe6..3b9f136 100644
+--- a/WeaselServer/WeaselServerApp.cpp
++++ b/WeaselServer/WeaselServerApp.cpp
+@@ -16,17 +16,7 @@ int WeaselServerApp::Run() {
+   if (!m_server.Start())
+     return -1;
  
- #include <rime_api.h>
+-  // win_sparkle_set_appcast_url("http://localhost:8000/weasel/update/appcast.xml");
+-  win_sparkle_set_registry_path("Software\\Rime\\Weasel\\Updates");
+-  if (GetThreadUILanguage() ==
+-      MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_TRADITIONAL))
+-    win_sparkle_set_lang("zh-TW");
+-  else if (GetThreadUILanguage() ==
+-           MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED))
+-    win_sparkle_set_lang("zh-CN");
+-  else
+-    win_sparkle_set_lang("en");
+-  win_sparkle_init();
++  // TypePick does not run the upstream Weasel auto-updater.
+   m_ui.Create(m_server.GetHWnd());
  
-@@ -95,6 +98,7 @@ class RimeWithWeaselHandler : public weasel::RequestHandler {
-     return m_session_status_map[ipc_id] = SessionStatus();
+   m_handler->Initialize();
+@@ -42,7 +32,6 @@ int WeaselServerApp::Run() {
+   m_handler->Finalize();
+   m_ui.Destroy();
+   tray_icon.RemoveIcon();
+-  win_sparkle_cleanup();
+ 
+   return ret;
+ }
+@@ -52,17 +41,17 @@ void WeaselServerApp::SetupMenuHandlers() {
+   m_server.AddMenuHandler(ID_WEASELTRAY_QUIT,
+                           [this] { return m_server.Stop() == 0; });
+   m_server.AddMenuHandler(ID_WEASELTRAY_DEPLOY,
+-                          std::bind(execute, dir / L"WeaselDeployer.exe",
++                          std::bind(execute, dir / L"TypePickDeployer.exe",
+                                     std::wstring(L"/deploy")));
+   m_server.AddMenuHandler(
+       ID_WEASELTRAY_SETTINGS,
+-      std::bind(execute, dir / L"WeaselDeployer.exe", std::wstring()));
++      std::bind(execute, dir / L"TypePick.exe", std::wstring()));
+   m_server.AddMenuHandler(
+       ID_WEASELTRAY_DICT_MANAGEMENT,
+-      std::bind(execute, dir / L"WeaselDeployer.exe", std::wstring(L"/dict")));
++      std::bind(execute, dir / L"TypePickDeployer.exe", std::wstring(L"/dict")));
+   m_server.AddMenuHandler(
+       ID_WEASELTRAY_SYNC,
+-      std::bind(execute, dir / L"WeaselDeployer.exe", std::wstring(L"/sync")));
++      std::bind(execute, dir / L"TypePickDeployer.exe", std::wstring(L"/sync")));
+   m_server.AddMenuHandler(ID_WEASELTRAY_WIKI,
+                           std::bind(open, L"https://rime.im/docs/"));
+   m_server.AddMenuHandler(ID_WEASELTRAY_HOMEPAGE,
+diff --git a/WeaselServer/WeaselServerApp.h b/WeaselServer/WeaselServerApp.h
+index 2813863..1f08ec3 100644
+--- a/WeaselServer/WeaselServerApp.h
++++ b/WeaselServer/WeaselServerApp.h
+@@ -34,19 +34,7 @@ class WeaselServerApp {
    }
  
-+  std::unique_ptr<typepick::WeaselBridge> m_typepick;
-   AppOptionsByAppName m_app_options;
-   weasel::UI* m_ui;  // reference
-   DWORD m_active_session;
+   static bool check_update() {
+-    // when checked manually, show testing versions too
+-    std::string feed_url = GetCustomResource("ManualUpdateFeedURL", "APPCAST");
+-    std::wstring channel{};
+-    auto ret = RegGetStringValue(HKEY_CURRENT_USER, L"Software\\Rime\\Weasel",
+-                                 L"UpdateChannel", channel);
+-    if (!ret && channel == L"testing") {
+-      feed_url = GetCustomResource("TestingManualUpdateFeedURL", "APPCAST");
+-    }
+-    if (!feed_url.empty()) {
+-      win_sparkle_set_appcast_url(feed_url.c_str());
+-    }
+-    win_sparkle_check_update_with_ui();
+-    return true;
++    return open(L"https://github.com/hetaodw/TypePick");
+   }
+ 
+   static fs::path install_dir() {
+diff --git a/WeaselServer/WeaselService.h b/WeaselServer/WeaselService.h
+index 513fedf..ccef327 100644
+--- a/WeaselServer/WeaselService.h
++++ b/WeaselServer/WeaselService.h
+@@ -5,7 +5,7 @@
+ 
+ #include "WeaselServerApp.h"
+ 
+-#define WEASEL_SERVICE_NAME L"WeaselInputService"
++#define WEASEL_SERVICE_NAME L"TypePickInputService"
+ 
+ class WeaselService {
+  public:
+diff --git a/WeaselTSF/Globals.cpp b/WeaselTSF/Globals.cpp
+index c9c8d4c..90f6636 100644
+--- a/WeaselTSF/Globals.cpp
++++ b/WeaselTSF/Globals.cpp
+@@ -8,32 +8,16 @@ LONG g_cRefDll = -1;
+ CRITICAL_SECTION g_cs;
+ 
+ // {A3F4CDED-B1E9-41EE-9CA6-7B4D0DE6CB0A}
+-static const GUID c_clsidTextService = {
+-    0xa3f4cded,
+-    0xb1e9,
+-    0x41ee,
+-    {0x9c, 0xa6, 0x7b, 0x4d, 0xd, 0xe6, 0xcb, 0xa}};
++static const GUID c_clsidTextService = {0x603238af, 0xc1e4, 0x5691, {0x8b, 0x93, 0xae, 0x39, 0x2b, 0xd3, 0xbc, 0xd1}};
+ 
+ // {3D02CAB6-2B8E-4781-BA20-1C9267529467}
+-static const GUID c_guidProfile = {
+-    0x3d02cab6,
+-    0x2b8e,
+-    0x4781,
+-    {0xba, 0x20, 0x1c, 0x92, 0x67, 0x52, 0x94, 0x67}};
++static const GUID c_guidProfile = {0xe694d465, 0xdd53, 0x59a9, {0xac, 0xba, 0x07, 0x65, 0xcf, 0x7a, 0x2c, 0x7d}};
+ 
+ // {341F9E3A-B8AD-499D-936C-48701E329FB2}
+-static const GUID c_guidLangBarItemButton = {
+-    0x341f9e3a,
+-    0xb8ad,
+-    0x499d,
+-    {0x93, 0x6c, 0x48, 0x70, 0x1e, 0x32, 0x9f, 0xb2}};
++static const GUID c_guidLangBarItemButton = {0xa1d3e6b1, 0x95ae, 0x58c9, {0x88, 0x28, 0xae, 0x3e, 0x76, 0xd9, 0x19, 0xaa}};
+ 
+ // {2AC87E79-3260-4B32-9DEA-F8390976C20B}
+-static const GUID c_guidDisplayAttributeInput = {
+-    0x2ac87e79,
+-    0x3260,
+-    0x4b32,
+-    {0x9d, 0xea, 0xf8, 0x39, 0x09, 0x76, 0xc2, 0x0b}};
++static const GUID c_guidDisplayAttributeInput = {0xe3c99d38, 0x39c1, 0x50ba, {0xb2, 0x31, 0x4c, 0xa3, 0x0e, 0x90, 0xe2, 0x25}};
+ 
+ #ifdef WEASEL_USING_OLDER_TSF_SDK
+ 
+@@ -58,8 +42,4 @@ const GUID GUID_LBI_INPUTMODE = {
+     0x4178,
+     {0xA3, 0xA7, 0x5F, 0x8A, 0x98, 0x75, 0x68, 0xE6}};
+ 
+-const GUID GUID_IME_MODE_PRESERVED_KEY = {
+-    0x0bd899fc,
+-    0xa8f7,
+-    0x4b42,
+-    {0xa9, 0x6d, 0xce, 0xc7, 0xc5, 0x0e, 0x0e, 0xae}};
++const GUID GUID_IME_MODE_PRESERVED_KEY = {0xe54c4535, 0x6993, 0x54d6, {0xbf, 0x45, 0x0f, 0x69, 0xed, 0x25, 0xab, 0x81}};
+diff --git a/WeaselTSF/LanguageBar.cpp b/WeaselTSF/LanguageBar.cpp
+index 82ef6a8..78a11e2 100644
+--- a/WeaselTSF/LanguageBar.cpp
++++ b/WeaselTSF/LanguageBar.cpp
+@@ -37,9 +37,9 @@ static void HMENU2ITfMenu(HMENU hMenu, ITfMenu* pTfMenu) {
+ static LPCWSTR GetWeaselRegName() {
+   LPCWSTR WEASEL_REG_NAME_;
+   if (is_wow64())
+-    WEASEL_REG_NAME_ = L"Software\\WOW6432Node\\Rime\\Weasel";
++    WEASEL_REG_NAME_ = L"Software\\WOW6432Node\\TypePick";
+   else
+-    WEASEL_REG_NAME_ = L"Software\\Rime\\Weasel";
++    WEASEL_REG_NAME_ = L"Software\\TypePick";
+ 
+   return WEASEL_REG_NAME_;
+ }
+@@ -310,11 +310,11 @@ void WeaselTSF::_HandleLangBarMenuSelect(UINT wID) {
+       }
+       break;
+     case ID_WEASELTRAY_USERCONFIG:
+-      if (FAILED(RegGetStringValue(HKEY_CURRENT_USER, L"Software\\Rime\\Weasel",
++      if (FAILED(RegGetStringValue(HKEY_CURRENT_USER, L"Software\\TypePick",
+                                    L"RimeUserDir", dir)) ||
+           dir.empty()) {
+         WCHAR _path[MAX_PATH] = {0};
+-        ExpandEnvironmentStringsW(L"%AppData%\\Rime", _path, _countof(_path));
++        ExpandEnvironmentStringsW(L"%AppData%\\TypePick", _path, _countof(_path));
+         dir = std::wstring(_path);
+       }
+       if (!dir.empty() && fs::exists(dir))
+diff --git a/WeaselTSF/Register.cpp b/WeaselTSF/Register.cpp
+index f84df97..aa75faf 100644
+--- a/WeaselTSF/Register.cpp
++++ b/WeaselTSF/Register.cpp
+@@ -31,7 +31,7 @@ HKL FindIME(LANGID langid) {
+         ret = RegQueryValueExW(hSubKey, L"Ime File", NULL, &type, (LPBYTE)data,
+                                &size);
+         if (ret == ERROR_SUCCESS && type == REG_SZ &&
+-            _wcsicmp(data, L"weasel.ime") == 0)
++            _wcsicmp(data, L"typepick.ime") == 0)
+           hKL = (HKL)id;
+       }
+       RegCloseKey(hSubKey);
+@@ -67,7 +67,7 @@ BOOL RegisterProfiles() {
+ 
+   const auto text_service_desc = get_weasel_ime_name();
+   const WCHAR* text_service_desc_str = text_service_desc.c_str();
+-  ULONG text_service_desc_len = text_service_desc.size() * sizeof(wchar_t);
++  ULONG text_service_desc_len = static_cast<ULONG>(text_service_desc.size());
+ 
+   WCHAR achIconFile[MAX_PATH];
+   ULONG cchIconFile =
+@@ -80,8 +80,8 @@ BOOL RegisterProfiles() {
+         hkl, 0, enable, 0);
+   };
+ 
+-  const auto hkl_hans = FindIME(TEXTSERVICE_LANGID_HANS);
+-  const auto hkl_hant = FindIME(TEXTSERVICE_LANGID_HANT);
++  const HKL hkl_hans = NULL;
++  const HKL hkl_hant = NULL;
+   CHECK_HR(register_profile(TEXTSERVICE_LANGID_HANS, hkl_hans, hansEnable));
+   CHECK_HR(register_profile(TEXTSERVICE_LANGID_HANT, hkl_hant, hantEnable));
+   CHECK_HR(register_profile(TEXTSERVICE_LANGID_HONGKONG, NULL, hkEnable));
+diff --git a/WeaselTSF/WeaselTSF.cpp b/WeaselTSF/WeaselTSF.cpp
+index 53290b0..893e344 100644
+--- a/WeaselTSF/WeaselTSF.cpp
++++ b/WeaselTSF/WeaselTSF.cpp
+@@ -172,7 +172,7 @@ ExitError:
+ 
+ STDMETHODIMP WeaselTSF::OnSetThreadFocus() {
+   std::wstring _ToggleImeOnOpenClose{};
+-  RegGetStringValue(HKEY_CURRENT_USER, L"Software\\Rime\\weasel",
++  RegGetStringValue(HKEY_CURRENT_USER, L"Software\\TypePick",
+                     L"ToggleImeOnOpenClose", _ToggleImeOnOpenClose);
+   _isToOpenClose = (_ToggleImeOnOpenClose == L"yes");
+   if (m_client.Echo()) {
+@@ -241,7 +241,7 @@ bool WeaselTSF::_EnsureServerConnected() {
+     _Reconnect();
+     retry++;
+     if (retry >= 6) {
+-      HANDLE hMutex = CreateMutex(NULL, TRUE, L"WeaselDeployerExclusiveMutex");
++      HANDLE hMutex = CreateMutex(NULL, TRUE, L"TypePickDeployerExclusiveMutex");
+       const auto count_server_process = []() -> int {
+         int count = 0;
+         HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+@@ -251,7 +251,7 @@ bool WeaselTSF::_EnsureServerConnected() {
+         pe.dwSize = sizeof(pe);
+         if (Process32First(snap, &pe)) {
+           do {
+-            if (_wcsicmp(pe.szExeFile, L"WeaselServer.exe") == 0)
++            if (_wcsicmp(pe.szExeFile, L"TypePickServer.exe") == 0)
+               count++;
+           } while (Process32Next(snap, &pe));
+         }
+diff --git a/include/WeaselConstants.h b/include/WeaselConstants.h
+index 09625e4..b22e114 100644
+--- a/include/WeaselConstants.h
++++ b/include/WeaselConstants.h
+@@ -1,7 +1,7 @@
+ ﻿#pragma once
+ 
+-#define WEASEL_CODE_NAME "Weasel"
+-#define WEASEL_REG_KEY L"Software\\Rime\\Weasel"
++#define WEASEL_CODE_NAME "TypePick"
++#define WEASEL_REG_KEY L"Software\\TypePick"
+ #define RIME_REG_KEY L"Software\\Rime"
+ 
+ #define STRINGIZE(x) #x
+diff --git a/include/WeaselIPC.h b/include/WeaselIPC.h
+index 27bfd63..9f5a1a0 100644
+--- a/include/WeaselIPC.h
++++ b/include/WeaselIPC.h
+@@ -6,8 +6,8 @@
+ #include <memory>
+ #include <KeyEvent.h>
+ 
+-#define WEASEL_IPC_WINDOW L"WeaselIPCWindow_1.0"
+-#define WEASEL_IPC_PIPE_NAME L"WeaselNamedPipe"
++#define WEASEL_IPC_WINDOW L"TypePickIPCWindow_1.0"
++#define WEASEL_IPC_PIPE_NAME L"TypePickNamedPipe"
+ 
+ #define WEASEL_IPC_METADATA_SIZE 1024
+ #define WEASEL_IPC_BUFFER_SIZE (4 * 1024)
+diff --git a/include/WeaselUtility.h b/include/WeaselUtility.h
+index 742f157..b8026fd 100644
+--- a/include/WeaselUtility.h
++++ b/include/WeaselUtility.h
+@@ -194,9 +194,9 @@ inline std::wstring get_weasel_ime_name() {
+       langId == MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_HONGKONG) ||
+       langId == MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SINGAPORE) ||
+       langId == MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_MACAU)) {
+-    return L"小狼毫";
++    return L"TypePick";
+   } else {
+-    return L"Weasel";
++    return L"TypePick";
+   }
+ }
+ 
+@@ -217,7 +217,7 @@ inline LONG RegGetStringValue(HKEY key,
+ 
+ inline LANGID get_language_id() {
+   std::wstring lang{};
+-  if (RegGetStringValue(HKEY_CURRENT_USER, L"Software\\Rime\\Weasel",
++  if (RegGetStringValue(HKEY_CURRENT_USER, L"Software\\TypePick",
+                         L"Language", lang) == ERROR_SUCCESS) {
+     if (lang == L"chs")
+       return MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED);

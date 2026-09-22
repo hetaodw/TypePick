@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #include <typepick/windows.h>
 #include <winhttp.h>
+#include <wincred.h>
 #include <algorithm>
 #include <stdexcept>
 
@@ -45,9 +46,20 @@ Decision CallJev(const Snapshot& s, const Config& c) {
   }
   wchar_t key[4096] = {};
   const DWORD n = GetEnvironmentVariableW(L"TYPESAFE_API_KEY", key, 4096);
-  if (!n || n >= 4096) return Failure("missing_api_key");
-  // Environment value is never persisted or logged; reject header injection.
-  const std::wstring key_value(key, n);
+  if (n >= 4096) return Failure("invalid_api_key");
+  std::wstring key_value(key, n);
+  SecureZeroMemory(key, sizeof(key));
+  if (key_value.empty()) {
+    PCREDENTIALW credential = nullptr;
+    if (CredReadW(L"TypePick/Jev", CRED_TYPE_GENERIC, 0, &credential)) {
+      if (credential->CredentialBlobSize % sizeof(wchar_t) == 0)
+        key_value.assign(reinterpret_cast<wchar_t*>(credential->CredentialBlob),
+                         credential->CredentialBlobSize / sizeof(wchar_t));
+      CredFree(credential);
+    }
+  }
+  if (key_value.empty()) return Failure("missing_api_key");
+  // Credentials are never included in logs or plaintext settings.
   if (key_value.find_first_of(L"\r\n") != std::wstring::npos) return Failure("invalid_api_key");
   const auto deadline = Clock::now() + std::chrono::milliseconds(c.timeout_ms);
   InternetHandle session(WinHttpOpen(L"TypePick/0.1", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,

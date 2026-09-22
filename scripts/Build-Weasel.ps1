@@ -21,6 +21,6 @@ $replacements = @{ BOOST_ROOT = [Security.SecurityElement]::Escape($BoostRoot); 
 foreach ($key in $replacements.Keys) { $props = $props.Replace('$' + $key, $replacements[$key]) }
 Set-Content -LiteralPath (Join-Path $tree 'weasel.props') -Value $props -Encoding utf8
 $msbuild = Join-Path $vsPath 'MSBuild/Current/Bin/MSBuild.exe'
-& $msbuild (Join-Path $tree 'weasel.sln') /m /nologo '/t:WeaselServer;WeaselTSF' '/p:Configuration=Release' '/p:Platform=x64' "/p:PlatformToolset=$PlatformToolset" /v:minimal
+& $msbuild (Join-Path $tree 'weasel.sln') /m /nologo '/t:WeaselServer;WeaselTSF;WeaselDeployer' '/p:Configuration=Release' '/p:Platform=x64' "/p:PlatformToolset=$PlatformToolset" /v:minimal
 Assert-NativeExit 'Patched Weasel x64 build'
 Write-Host "Built x64 development binaries in $tree/output. No input method was installed or replaced."

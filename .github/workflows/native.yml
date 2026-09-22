@@ -52,3 +52,33 @@ jobs:
       - name: Build patched WeaselServer and TSF x64
         shell: pwsh
         run: ./scripts/Build-Weasel.ps1 -BoostRoot ./build/deps/boost/boost-1.84.0
+      - name: Build settings and probe
+        shell: pwsh
+        run: ./scripts/Build-Core.ps1
+      - name: Collect exact dependency source and licenses
+        shell: pwsh
+        run: ./scripts/Get-ReleaseSources.ps1
+      - name: Install NSIS build tool
+        shell: pwsh
+        run: |
+          if (!(Test-Path "${env:ProgramFiles(x86)}/NSIS/makensis.exe")) {
+            choco install nsis --version=3.11 -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'NSIS installation failed.' }
+          }
+      - name: Package executable and corresponding source
+        shell: pwsh
+        run: ./scripts/Build-Installer.ps1
+      - name: Test install, real server IPC, Tab and uninstall
+        shell: pwsh
+        run: ./scripts/Test-Installer.ps1
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: TypePick-Windows-x64
+          path: dist/*
+          compression-level: 0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installer-test-evidence
+          path: build/installer-test-results.json

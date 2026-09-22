@@ -42,7 +42,8 @@ int wmain(int argc, wchar_t** argv) {
     api->setup(&traits); api->initialize(&traits);
     if (api->start_maintenance(True)) api->join_maintenance_thread();
     const auto sid = api->create_session();
-    if (!sid || !api->select_schema(sid, "typepick_demo")) throw std::runtime_error("Rime schema unavailable");
+    const auto schema = args.count(L"--schema") ? Utf8(args[L"--schema"]) : "typepick_demo";
+    if (!sid || !api->select_schema(sid, schema.c_str())) throw std::runtime_error("Rime schema unavailable");
     api->set_property(sid, "client_app", "notepad.exe");
     api->set_option(sid, "ascii_mode", False);
     const auto input = Utf8(args.count(L"--input") ? args[L"--input"] : L"yanjiu");
