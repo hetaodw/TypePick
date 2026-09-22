@@ -16,9 +16,12 @@ try {
     $selfTest = Start-Process -FilePath "$install/TypePick.exe" -ArgumentList '--self-test' -WindowStyle Hidden -PassThru -Wait
     if ($selfTest.ExitCode -ne 0) { throw 'Credential Manager self-test failed.' }
     $server = Start-Process -FilePath "$install/TypePickServer.exe" -WindowStyle Hidden -PassThru
-    $test = Start-Process -FilePath (Get-Command python).Source -ArgumentList "`"$PSScriptRoot/test_installed_ipc.py`"" -WindowStyle Hidden -PassThru
+    $test = Start-Process -FilePath (Get-Command python).Source -ArgumentList "`"$PSScriptRoot/test_installed_ipc.py`"" -WindowStyle Hidden -PassThru -RedirectStandardOutput "$TypePickRoot/build/ipc-test.stdout.txt" -RedirectStandardError "$TypePickRoot/build/ipc-test.stderr.txt"
     if (!$test.WaitForExit(120000)) { Stop-Process -Id $test.Id; throw 'Installed IPC test timed out.' }
-    if ($test.ExitCode -ne 0) { throw 'Installed IPC test failed.' }
+    if ($test.ExitCode -ne 0) {
+        Get-Content "$TypePickRoot/build/ipc-test.stderr.txt"
+        throw 'Installed IPC test failed.'
+    }
 } finally {
     if ($server -and !$server.HasExited) {
         $quit = Start-Process -FilePath "$install/TypePickServer.exe" -ArgumentList '/q' -WindowStyle Hidden -PassThru

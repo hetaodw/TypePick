@@ -81,4 +81,6 @@ jobs:
         if: always()
         with:
           name: installer-test-evidence
-          path: build/installer-test-results.json
+          path: |
+            build/installer-test-results.json
+            build/ipc-test.*.txt
