@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import struct
 import time
+import re
 
 if os.environ.get('GITHUB_ACTIONS') != 'true':
     raise SystemExit('This installed-system test is restricted to disposable GitHub CI runners.')
@@ -52,6 +53,15 @@ results={}
 try:
     sid,body=request(2,body='action=session\nsession.client_app=notepad.exe\nsession.client_type=tsf\n.\n')
     if not sid: raise RuntimeError('Session creation failed')
+    # A functioning engine can commit text even when the frontend has zero-sized
+    # fonts. Check the cold-start frontend configuration and the transmitted style.
+    frontend=Path(os.environ['APPDATA'])/'TypePick/build/weasel.yaml'
+    if not frontend.is_file():raise RuntimeError('Cold start did not deploy candidate window configuration')
+    font=re.search(r'^  font_point:\s*(\d+)', frontend.read_text(encoding='utf-8'), re.M)
+    if not font or int(font[1])<=0:raise RuntimeError('Candidate font size is not positive')
+    if 'Microsoft YaHei' not in body:raise RuntimeError('Configured candidate font was not sent to the client')
+    results['candidate_font_point']=int(font[1])
+    results['candidate_style_transmitted']=True
     request(6,sid=sid)
     for ch in 'nihao':request(4,ord(ch),sid)
     _,body=request(4,32,sid)
