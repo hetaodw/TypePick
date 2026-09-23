@@ -95,7 +95,9 @@ uint64_t Selector::Submit(Snapshot s) {
   ++revision_;
   ready_.reset();
   snapshot_ = std::move(s);
-  pending_ = config_.enabled && ValidSnapshot(snapshot_);
+  // A frequent word alone is not a contextual recommendation.
+  pending_ = config_.enabled && ValidSnapshot(snapshot_) &&
+      snapshot_.context.find_first_not_of(" \t\r\n") != std::string::npos;
   due_ = Clock::now() + std::chrono::milliseconds(config_.debounce_ms);
   cv_.notify_all();
   return revision_;

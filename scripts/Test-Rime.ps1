@@ -9,6 +9,7 @@ $scratch = Join-Path $TypePickRoot ('build/probes/' + [guid]::NewGuid().ToString
 $cases = @(
     @{ Name = 'research'; Context = '这个问题需要进一步'; Expected = '研究' },
     @{ Name = 'shop'; Context = '这家商店主要卖'; Expected = '烟酒' },
+    @{ Name = 'edit-preedit'; Context = '这家商店主要卖'; Expected = '烟酒'; Edit = $true },
     @{ Name = 'focus'; Context = '这个问题需要进一步'; Reject = 'focus' },
     @{ Name = 'input'; Context = '这个问题需要进一步'; Reject = 'input' },
     @{ Name = 'app'; Context = '这个问题需要进一步'; Reject = 'app' }
@@ -17,6 +18,7 @@ $results = @()
 foreach ($case in $cases) {
     $probeArgs = @('--rime', $RimeDll, '--data', (Join-Path $TypePickRoot 'data'), '--user', (Join-Path $scratch $case.Name), '--bridge-smoke', '--context', $case.Context)
     if ($case.ContainsKey('Reject')) { $probeArgs += @('--reject', $case.Reject) }
+    if ($case.ContainsKey('Edit')) { $probeArgs += '--edit-preedit' }
     $raw = & $probe @probeArgs
     Assert-NativeExit "Rime probe $($case.Name)"
     $result = ($raw -join "`n") | ConvertFrom-Json
@@ -26,4 +28,4 @@ foreach ($case in $cases) {
     Write-Host "PASS: $($case.Name)"
 }
 $results | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $scratch 'results.json') -Encoding utf8
-Write-Host "Five real-librime bridge tests passed. Evidence: $scratch/results.json"
+Write-Host "$($cases.Count) real-librime bridge tests passed. Evidence: $scratch/results.json"

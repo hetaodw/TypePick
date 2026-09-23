@@ -50,6 +50,12 @@ int main() {
     CHECK(!ParseDecision({{"unrelated", true}}, 2, c).index);
     std::atomic<int> calls = 0;
     {
+      auto empty = Sample(); empty.context = " \n";
+      Selector s(c, [&](const Snapshot&, const Config&) { ++calls; return Decision{0, 1, "test"}; });
+      s.Submit(empty); std::this_thread::sleep_for(30ms);
+      CHECK(calls == 0); CHECK(!s.Poll());
+    }
+    {
       Config disabled;
       Selector s(disabled, [&](const Snapshot&, const Config&) { ++calls; return Decision{0, 1, "test"}; });
       s.Submit(Sample()); std::this_thread::sleep_for(30ms);

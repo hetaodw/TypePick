@@ -63,11 +63,20 @@ try:
     results['candidate_font_point']=int(font[1])
     results['candidate_style_transmitted']=True
     request(6,sid=sid)
+    for ch in 'yanjiu':request(4,ord(ch),sid)
+    time.sleep(.5)
+    window=u.FindWindowW('TypePick.Recommendation.0.1',None)
+    if window and u.IsWindowVisible(window):raise RuntimeError('AI appeared without committed context')
+    results['empty_context']='no AI popup'
+    request(4,0xff1b,sid)
     for ch in 'nihao':request(4,ord(ch),sid)
     _,body=request(4,32,sid)
     if 'commit=你好' not in body:
         raise RuntimeError('Expected real Pinyin commit, got: '+body[:1500])
     results['pinyin_commit']='你好'
+    # Editing active Pinyin must preserve the preceding committed context.
+    request(4,ord('a'),sid)
+    request(4,0xff08,sid)
     for ch in 'yanjiu':request(4,ord(ch),sid)
     deadline=time.monotonic()+5
     label=''
@@ -80,6 +89,7 @@ try:
     _,body=request(4,0xff09,sid)
     if 'commit=研究' not in body:raise RuntimeError('Tab did not commit expected recommendation: '+body[:1000])
     results['demo_tab_commit']='研究'
+    results['preedit_edit_preserves_context']=True
     # A second connection catches accidental loss of thread-local request data.
     request(3,sid=sid)
     sid,_=request(2,body='action=session\nsession.client_app=chrome.exe\nsession.client_type=tsf\n.\n')

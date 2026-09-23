@@ -1,11 +1,30 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 #include <typepick/windows.h>
+#include <typepick/popup_layout.h>
 #include <algorithm>
 #include <cctype>
 #include <fstream>
 #include <cwctype>
 
 namespace typepick {
+namespace {
+std::optional<RECT> CandidateWindow() {
+  struct Search { DWORD process; std::optional<RECT> rect; } search{};
+  GetWindowThreadProcessId(GetForegroundWindow(), &search.process);
+  EnumWindows([](HWND window, LPARAM data) -> BOOL {
+    auto& s = *reinterpret_cast<Search*>(data);
+    DWORD pid = 0; GetWindowThreadProcessId(window, &pid);
+    if (pid != s.process || !IsWindowVisible(window)) return TRUE;
+    wchar_t cls[128] = {};
+    GetClassNameW(window, cls, 128);
+    if (wcscmp(cls, L"TypePick.Candidate.0.1") != 0) return TRUE;
+    RECT rect = {};
+    if (GetWindowRect(window, &rect) && rect.right > rect.left && rect.bottom > rect.top) s.rect = rect;
+    return !s.rect;
+  }, reinterpret_cast<LPARAM>(&search));
+  return search.rect;
+}
+}
 struct WeaselBridge::Impl {
   RimeApi* api;
   Config config;
@@ -98,10 +117,9 @@ struct WeaselBridge::Impl {
     SetWindowTextW(window, label.c_str());
     MONITORINFO info = {sizeof(info)};
     GetMonitorInfoW(MonitorFromRect(&caret, MONITOR_DEFAULTTONEAREST), &info);
-    const int width = 420, height = 40;
-    const int x = (std::max)(info.rcWork.left, (std::min)(caret.right + 16, info.rcWork.right - width));
-    const int y = (std::max)(info.rcWork.top, (std::min)(caret.bottom + 56, info.rcWork.bottom - height));
-    SetWindowPos(window, HWND_TOPMOST, x, y, width, height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+    const auto rect = RecommendationRect(caret, info.rcWork, CandidateWindow());
+    SetWindowPos(window, HWND_TOPMOST, rect.left, rect.top, rect.right - rect.left,
+                 rect.bottom - rect.top, SWP_NOACTIVATE | SWP_SHOWWINDOW);
     InvalidateRect(window, nullptr, TRUE);
   }
   static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
@@ -135,6 +153,9 @@ WeaselBridge::WeaselBridge(RimeApi* api, const std::filesystem::path& dir)
     : impl_(std::make_unique<Impl>(api, dir)) {}
 WeaselBridge::~WeaselBridge() = default;
 void WeaselBridge::Reset() { impl_->Reset(); }
+void WeaselBridge::InvalidateCandidates() {
+  impl_->selector->Invalidate(); impl_->Hide(); impl_->swallowed_tab = false;
+}
 void WeaselBridge::Position(const RECT& rect) {
   // Moving the caret outside the current line means the cached context may be stale.
   if (impl_->caret.top && std::abs(rect.top - impl_->caret.top) > 5) impl_->Reset();
@@ -164,7 +185,11 @@ bool WeaselBridge::BeforeKey(RimeSessionId sid, int key, int mask) {
   impl_->Hide();
   // Context is valid only for contiguous typing. Editing/navigation/shortcuts reset it.
   const bool letter = key >= 'a' && key <= 'z';
-  if (!no_modifiers || (!letter && key != ' ' && key != '\'' && !(key >= '1' && key <= '9')))
+  const char* input = impl_->api->get_input(sid);
+  const bool composing = input && *input;
+  const bool preedit_edit = composing && (key == 0xff08 || key == 0xffff ||
+      key == 0xff1b || (key >= 0xff50 && key <= 0xff57));
+  if (!no_modifiers || (!letter && !preedit_edit && key != ' ' && key != '\'' && !(key >= '1' && key <= '9')))
     impl_->context.clear();
   return false;
 }

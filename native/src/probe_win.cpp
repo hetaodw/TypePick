@@ -11,7 +11,7 @@ int wmain(int argc, wchar_t** argv) {
     std::map<std::wstring, std::wstring> args;
     for (int i = 1; i < argc; ++i) {
       const std::wstring name = argv[i];
-      if (name == L"--demo" || name == L"--live" || name == L"--bridge-smoke") args[name] = L"1";
+      if (name == L"--demo" || name == L"--live" || name == L"--bridge-smoke" || name == L"--edit-preedit") args[name] = L"1";
       else if (i + 1 < argc) args[name] = argv[++i];
       else throw std::runtime_error("missing argument");
     }
@@ -59,6 +59,12 @@ int wmain(int argc, wchar_t** argv) {
           bridge.BeforeKey(sid, ch, 0);
           api->process_key(sid, ch, 0);
           bridge.AfterKey(sid, ch, 0);
+        }
+        if (args.count(L"--edit-preedit")) {
+          bridge.BeforeKey(sid, 'a', 0); api->process_key(sid, 'a', 0);
+          bridge.BeforeKey(sid, 0xff08, 0); api->process_key(sid, 0xff08, 0);
+          bridge.InvalidateCandidates(); // Simulate candidate navigation.
+          bridge.AfterKey(sid, 'u', 0);
         }
         RECT caret = {100, 100, 100, 120}; bridge.Position(caret);
         const auto deadline = Clock::now() + std::chrono::seconds(2);

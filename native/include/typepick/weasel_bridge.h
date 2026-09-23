@@ -15,6 +15,8 @@ class WeaselBridge {
   void AfterKey(RimeSessionId session, int keycode, int mask);
   void OnCommit(RimeSessionId session, const char* text);
   void Reset();
+  // Candidate navigation changes a recommendation, not already committed text.
+  void InvalidateCandidates();
   void Position(const RECT& rect);
  private:
   struct Impl;

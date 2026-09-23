@@ -1,5 +1,5 @@
 diff --git a/RimeWithWeasel/RimeWithWeasel.cpp b/RimeWithWeasel/RimeWithWeasel.cpp
-index 709cd7e..a302f5a 100644
+index 709cd7e..7a301e4 100644
 --- a/RimeWithWeasel/RimeWithWeasel.cpp
 +++ b/RimeWithWeasel/RimeWithWeasel.cpp
 @@ -1,6 +1,8 @@
@@ -95,7 +95,7 @@ index 709cd7e..a302f5a 100644
               << ", index = " << index;
    if (m_disabled)
      return;
-+  if (m_typepick) m_typepick->Reset();
++  if (m_typepick) m_typepick->InvalidateCandidates();
    rime_api->select_candidate_on_current_page(to_session_id(ipc_id), index);
  }
  
@@ -103,7 +103,7 @@ index 709cd7e..a302f5a 100644
      EatLine eat) {
    DLOG(INFO) << "highlight candidate on current page, ipc_id = " << ipc_id
               << ", index = " << index;
-+  if (m_typepick) m_typepick->Reset();
++  if (m_typepick) m_typepick->InvalidateCandidates();
    bool res = rime_api->highlight_candidate_on_current_page(
        to_session_id(ipc_id), index);
    _Respond(ipc_id, eat);
@@ -111,7 +111,7 @@ index 709cd7e..a302f5a 100644
                                         EatLine eat) {
    DLOG(INFO) << "change page, ipc_id = " << ipc_id
               << (backward ? "backward" : "foreward");
-+  if (m_typepick) m_typepick->Reset();
++  if (m_typepick) m_typepick->InvalidateCandidates();
    bool res = rime_api->change_page(to_session_id(ipc_id), backward);
    _Respond(ipc_id, eat);
    _UpdateUI(ipc_id);
@@ -736,6 +736,18 @@ index 53290b0..893e344 100644
                count++;
            } while (Process32Next(snap, &pe));
          }
+diff --git a/WeaselUI/WeaselPanel.h b/WeaselUI/WeaselPanel.h
+index 7ad3af7..4059a2a 100644
+--- a/WeaselUI/WeaselPanel.h
++++ b/WeaselUI/WeaselPanel.h
+@@ -25,6 +25,7 @@ class WeaselPanel
+     : public CWindowImpl<WeaselPanel, CWindow, CWeaselPanelTraits>,
+       CDoubleBufferImpl<WeaselPanel> {
+  public:
++  DECLARE_WND_CLASS(L"TypePick.Candidate.0.1")
+   BEGIN_MSG_MAP(WeaselPanel)
+   MESSAGE_HANDLER(WM_CREATE, OnCreate)
+   MESSAGE_HANDLER(WM_DESTROY, OnDestroy)
 diff --git a/include/RimeWithWeasel.h b/include/RimeWithWeasel.h
 index ab20d8d..d10d51f 100644
 --- a/include/RimeWithWeasel.h
