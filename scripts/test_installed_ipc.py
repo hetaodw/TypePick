@@ -88,6 +88,8 @@ try:
             text=c.create_unicode_buffer(512);u.GetWindowTextW(window,text,512);label=text.value;break
         time.sleep(.05)
     if '研究' not in label:raise RuntimeError('Recommendation popup did not display expected fixture: '+label)
+    if '100.0%' not in label:raise RuntimeError('Recommendation popup did not display numeric confidence')
+    results['numeric_confidence']='100.0%'
     _,body=request(4,0xff09,sid)
     if 'commit=研究' not in body:raise RuntimeError('Tab did not commit expected recommendation: '+body[:1000])
     results['demo_tab_commit']='研究'

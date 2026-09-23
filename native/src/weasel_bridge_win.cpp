@@ -6,6 +6,9 @@
 #include <cctype>
 #include <fstream>
 #include <cwctype>
+#include <iomanip>
+#include <sstream>
+#include <locale>
 
 namespace typepick {
 namespace {
@@ -49,7 +52,8 @@ struct WeaselBridge::Impl {
     log = std::make_shared<DiagnosticLog>(path / "logs" / "ai-diagnostics.jsonl");
     log->Write({{"event", "startup"}, {"enabled", config.enabled}, {"mode", config.mode},
         {"timeout_ms", config.timeout_ms}, {"debounce_ms", config.debounce_ms},
-        {"min_confidence", config.min_confidence}, {"min_margin", config.min_margin}});
+        {"min_confidence", config.min_confidence}, {"min_margin", config.min_margin},
+        {"show_all_confidences", config.show_all_confidences}});
     selector = std::make_unique<Selector>(config, CallJev,
         [logger = log](const nlohmann::json& event) { logger->Write(event); });
     if (!config.enabled) return;
@@ -124,8 +128,11 @@ struct WeaselBridge::Impl {
     }
     displayed = result;
     displayed_revision = result->revision;
+    std::wostringstream score;
+    score.imbue(std::locale::classic());
+    score << std::fixed << std::setprecision(1) << result->decision.confidence * 100.0;
     label = (config.mode == "demo" ? L"TypePick 演示 · " : L"TypePick AI · ") +
-        Wide(result->snapshot.candidates[*result->decision.index]) + L"    [Tab 采用]";
+        score.str() + L"% · " + Wide(result->snapshot.candidates[*result->decision.index]) + L"    [Tab 采用]";
     SetWindowTextW(window, label.c_str());
     MONITORINFO info = {sizeof(info)};
     GetMonitorInfoW(MonitorFromRect(&caret, MONITOR_DEFAULTTONEAREST), &info);

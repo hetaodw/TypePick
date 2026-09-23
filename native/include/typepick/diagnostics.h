@@ -18,7 +18,7 @@ class DiagnosticLog {
         if (fields.contains(key) && fields[key].is_string()) record[key] = fields[key];
       for (const char* key : {"revision", "context_bytes", "input_bytes", "candidate_count",
            "elapsed_ms", "confidence", "margin", "min_confidence", "min_margin",
-           "timeout_ms", "debounce_ms", "enabled", "stale", "shown", "error_code"})
+           "timeout_ms", "debounce_ms", "enabled", "show_all_confidences", "stale", "shown", "error_code"})
         if (fields.contains(key) && (fields[key].is_number() || fields[key].is_boolean())) record[key] = fields[key];
       record["time_unix_ms"] = std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::system_clock::now().time_since_epoch()).count();

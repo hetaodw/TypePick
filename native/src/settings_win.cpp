@@ -11,7 +11,7 @@
 namespace fs = std::filesystem;
 namespace {
 constexpr wchar_t CredentialTarget[] = L"TypePick/Jev";
-HWND main_window, key_edit, enabled_check, timeout_edit, status_label;
+HWND main_window, key_edit, enabled_check, confidence_check, timeout_edit, status_label;
 HFONT ui_font;
 fs::path UserDir() {
   PWSTR p = nullptr;
@@ -114,7 +114,8 @@ bool Save() {
   if (enabled && !HasKey()) { Message(L"请先输入密钥，或导入包含 key=... 的 .env 文件。", true); return false; }
   nlohmann::json config = {{"enabled", enabled}, {"mode", "jev"}, {"model", "jev-1.13.0"},
     {"allowed_apps", {"notepad.exe"}}, {"debounce_ms", 150}, {"timeout_ms", ms},
-    {"min_confidence", 0.7}, {"min_margin", 0.1}};
+    {"min_confidence", 0.7}, {"min_margin", 0.1},
+    {"show_all_confidences", SendMessageW(confidence_check, BM_GETCHECK, 0, 0) == BST_CHECKED}};
   auto dir = UserDir();
   auto tmp = dir / (L"typepick." + std::to_wstring(GetCurrentProcessId()) + L".tmp");
   { std::ofstream out(tmp); out << config.dump(2); out.close(); if (!out) throw std::runtime_error("config write"); }
@@ -163,11 +164,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       Control(L"BUTTON", L"打开记事本", WS_TABSTOP, 209, 421, 170, 38, 103);
       Control(L"BUTTON", L"打开用户目录", WS_TABSTOP, 394, 421, 170, 38, 104);
       Control(L"BUTTON", L"移除本机密钥", WS_TABSTOP, 24, 477, 170, 30, 105);
+      confidence_check = Control(L"BUTTON", L"开发模式：低置信度也显示", BS_AUTOCHECKBOX | WS_TABSTOP, 210, 477, 360, 30);
+      SendMessageW(confidence_check, BM_SETCHECK, BST_CHECKED, 0);
       Control(L"STATIC", L"Windows x64 MVP · 基于 Rime / 小狼毫\nTypePick 源码：github.com/hetaodw/TypePick · AGPL-3.0", 0, 24, 528, 550, 50);
       try {
         std::ifstream in(UserDir() / L"typepick.json");
         if (in) {
-          auto c = typepick::ParseConfig(nlohmann::json::parse(in));
+          auto raw = nlohmann::json::parse(in);
+          auto c = typepick::ParseConfig(raw);
+          // Existing MVP settings migrate to the requested development behavior.
+          SendMessageW(confidence_check, BM_SETCHECK,
+              raw.value("show_all_confidences", true) ? BST_CHECKED : BST_UNCHECKED, 0);
           SendMessageW(enabled_check, BM_SETCHECK, c.enabled ? BST_CHECKED : BST_UNCHECKED, 0);
           SetWindowTextW(timeout_edit, std::to_wstring(c.timeout_ms).c_str());
         }

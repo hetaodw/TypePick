@@ -16,6 +16,7 @@ Config ParseConfig(const nlohmann::json& value) {
   Config c;
   if (!value.is_object()) throw std::invalid_argument("config must be an object");
   c.enabled = value.value("enabled", false);
+  c.show_all_confidences = value.value("show_all_confidences", false);
   c.mode = value.value("mode", c.mode);
   c.model = value.value("model", c.model);
   c.allowed_apps = value.value("allowed_apps", c.allowed_apps);
@@ -77,7 +78,7 @@ Decision ParseDecision(const nlohmann::json& j, size_t count, const Config& c) {
     d.confidence = confidence;
     d.margin = chosen - next;
     if (choice == "abstain") { d.status = "abstained"; return d; }
-    if (confidence < c.min_confidence || chosen - next < c.min_margin) {
+    if (!c.show_all_confidences && (confidence < c.min_confidence || chosen - next < c.min_margin)) {
       d.status = "uncertain"; return d;
     }
     for (size_t i = 0; i < count; ++i) if (choice == "c" + std::to_string(i)) d.index = i;

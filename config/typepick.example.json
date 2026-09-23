@@ -1,5 +1,6 @@
 {
   "enabled": false,
+  "show_all_confidences": true,
   "mode": "jev",
   "model": "jev-1.13.0",
   "allowed_apps": ["notepad.exe"],

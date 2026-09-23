@@ -11,7 +11,7 @@ int wmain(int argc, wchar_t** argv) {
     std::map<std::wstring, std::wstring> args;
     for (int i = 1; i < argc; ++i) {
       const std::wstring name = argv[i];
-      if (name == L"--demo" || name == L"--live" || name == L"--bridge-smoke" || name == L"--edit-preedit") args[name] = L"1";
+      if (name == L"--demo" || name == L"--live" || name == L"--bridge-smoke" || name == L"--edit-preedit" || name == L"--show-all-confidences") args[name] = L"1";
       else if (i + 1 < argc) args[name] = argv[++i];
       else throw std::runtime_error("missing argument");
     }
@@ -24,6 +24,7 @@ int wmain(int argc, wchar_t** argv) {
         throw std::runtime_error("invalid timeout; expected 100..3000 milliseconds");
       probe_config = ParseConfig({{"timeout_ms", std::stoi(value)}});
     }
+    probe_config.show_all_confidences = args.count(L"--show-all-confidences") != 0;
     const auto dll = std::filesystem::absolute(args[L"--rime"]);
     HMODULE module = LoadLibraryExW(dll.c_str(), nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
     if (!module) throw std::runtime_error("could not load rime.dll");

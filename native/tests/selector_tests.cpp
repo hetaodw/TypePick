@@ -43,6 +43,15 @@ int main() {
     CHECK(!ParseDecision(Answer("c0", .1), 2, c).index);
     CHECK(!ParseDecision(Answer("c1"), 2, c).index); // Choice contradicts its probabilities.
     CHECK(!ParseDecision(Answer("abstain"), 2, c).index);
+    auto development = ParseConfig({{"enabled", true}, {"show_all_confidences", true}});
+    CHECK(ParseDecision(Answer("c0", 0.0), 2, development).index == 0);
+    CHECK(ParseDecision(Answer("c0", .47), 2, development).confidence == .47);
+    auto low_margin = Answer("c0", .47);
+    low_margin["answers"]["candidate"]["probabilities"] = {{"c0", .47}, {"c1", .46}, {"abstain", .07}};
+    CHECK(ParseDecision(low_margin, 2, development).index == 0);
+    CHECK(!ParseDecision(low_margin, 2, c).index);
+    CHECK(!ParseDecision(Answer("abstain"), 2, development).index);
+    CHECK(!ParseDecision(Answer("c99"), 2, development).index);
     auto broken = Answer(); broken["answers"]["candidate"]["probabilities"]["c0"] = -1;
     CHECK(!ParseDecision(broken, 2, c).index);
     broken = Answer(); broken["answers"]["candidate"]["probabilities"].erase("abstain");

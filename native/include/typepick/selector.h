@@ -22,6 +22,7 @@ struct Snapshot {
 };
 struct Config {
   bool enabled = false;
+  bool show_all_confidences = false;
   std::string mode = "jev", model = "jev-1.13.0";
   std::vector<std::string> allowed_apps = {"notepad.exe"};
   int debounce_ms = 150, timeout_ms = 600;
