@@ -183,12 +183,12 @@ bool WeaselBridge::BeforeKey(RimeSessionId sid, int key, int mask) {
   }
   impl_->selector->Invalidate();
   impl_->Hide();
-  // Context is valid only for contiguous typing. Editing/navigation/shortcuts reset it.
+  // Editing active Pinyin does not change the already committed document text.
   const bool letter = key >= 'a' && key <= 'z';
   const char* input = impl_->api->get_input(sid);
   const bool composing = input && *input;
   const bool preedit_edit = composing && (key == 0xff08 || key == 0xffff ||
-      key == 0xff1b || (key >= 0xff50 && key <= 0xff57));
+      key == 0xff1b || key == '-' || key == '=' || (key >= 0xff50 && key <= 0xff57));
   if (!no_modifiers || (!letter && !preedit_edit && key != ' ' && key != '\'' && !(key >= '1' && key <= '9')))
     impl_->context.clear();
   return false;

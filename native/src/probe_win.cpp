@@ -61,6 +61,8 @@ int wmain(int argc, wchar_t** argv) {
           bridge.AfterKey(sid, ch, 0);
         }
         if (args.count(L"--edit-preedit")) {
+          bridge.BeforeKey(sid, '=', 0); api->process_key(sid, '=', 0);
+          bridge.BeforeKey(sid, '-', 0); api->process_key(sid, '-', 0);
           bridge.BeforeKey(sid, 'a', 0); api->process_key(sid, 'a', 0);
           bridge.BeforeKey(sid, 0xff08, 0); api->process_key(sid, 0xff08, 0);
           bridge.InvalidateCandidates(); // Simulate candidate navigation.

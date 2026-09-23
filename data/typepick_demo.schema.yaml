@@ -13,7 +13,7 @@ ascii_composer:
     Shift_L: commit_code
     Shift_R: commit_code
 engine:
-  processors: [ascii_composer, speller, selector, navigator, express_editor]
+  processors: [ascii_composer, speller, key_binder, selector, navigator, express_editor]
   segmentors: [ascii_segmentor, abc_segmentor, fallback_segmentor]
   translators: [script_translator]
   filters: [uniquifier]
@@ -26,3 +26,7 @@ translator:
   enable_completion: false
 menu:
   page_size: 9
+key_binder:
+  bindings:
+    - { when: has_menu, accept: minus, send: Page_Up }
+    - { when: has_menu, accept: equal, send: Page_Down }

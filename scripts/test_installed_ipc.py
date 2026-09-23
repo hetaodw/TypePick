@@ -76,6 +76,8 @@ try:
     results['pinyin_commit']='你好'
     # Editing active Pinyin must preserve the preceding committed context.
     request(4,ord('a'),sid)
+    request(4,ord('='),sid)
+    request(4,ord('-'),sid)
     request(4,0xff08,sid)
     for ch in 'yanjiu':request(4,ord(ch),sid)
     deadline=time.monotonic()+5
