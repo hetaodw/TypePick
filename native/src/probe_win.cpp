@@ -80,6 +80,10 @@ int wmain(int argc, wchar_t** argv) {
           Sleep(5);
         }
         if (!shown) throw std::runtime_error("bridge failed to recommend");
+        // Weasel packs IBus key release (bit 30) into bit 14 on its IPC wire.
+        // A delayed key-up must not hide an already displayed recommendation.
+        bridge.BeforeKey(sid, 'u', 0x4000);
+        bridge.AfterKey(sid, 'u', 0x4000);
         if (args.count(L"--reject")) {
           const auto why = args[L"--reject"];
           if (why == L"focus") bridge.Reset();
@@ -95,7 +99,7 @@ int wmain(int argc, wchar_t** argv) {
           result["rejected"] = Utf8(why);
         } else {
           if (!bridge.BeforeKey(sid, 0xff09, 0)) throw std::runtime_error("bridge failed to accept Tab");
-          if (!bridge.BeforeKey(sid, 0xff09, 0x8000)) throw std::runtime_error("Tab release leaked");
+          if (!bridge.BeforeKey(sid, 0xff09, 0x4000)) throw std::runtime_error("Tab release leaked");
         }
         result["mode"] = "demo_bridge";
       }

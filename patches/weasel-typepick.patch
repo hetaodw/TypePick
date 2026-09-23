@@ -1,5 +1,5 @@
 diff --git a/RimeWithWeasel/RimeWithWeasel.cpp b/RimeWithWeasel/RimeWithWeasel.cpp
-index 709cd7e..fa48bd2 100644
+index 709cd7e..7f932cc 100644
 --- a/RimeWithWeasel/RimeWithWeasel.cpp
 +++ b/RimeWithWeasel/RimeWithWeasel.cpp
 @@ -1,6 +1,8 @@
@@ -11,7 +11,17 @@ index 709cd7e..fa48bd2 100644
  #include <StringAlgorithm.hpp>
  #include <WeaselConstants.h>
  #include <WeaselUtility.h>
-@@ -97,9 +99,10 @@ void RimeWithWeaselHandler::_Setup() {
+@@ -12,6 +14,9 @@
+ #include <regex>
+ #include <rime_api.h>
+ 
++static_assert(typepick::WeaselKeyReleaseMask == ibus::RELEASE_MASK,
++              "TypePick must use the Weasel IPC key-release bit");
++
+ #define TRANSPARENT_COLOR 0x00000000
+ #define ARGB2ABGR(value)                                 \
+   ((value & 0xff000000) | ((value & 0x000000ff) << 16) | \
+@@ -97,9 +102,10 @@ void RimeWithWeaselHandler::_Setup() {
    weasel_traits.distribution_name = distribution_name.c_str();
    weasel_traits.distribution_code_name = WEASEL_CODE_NAME;
    weasel_traits.distribution_version = WEASEL_VERSION;
@@ -24,7 +34,7 @@ index 709cd7e..fa48bd2 100644
    rime_api->setup(&weasel_traits);
    rime_api->set_notification_handler(&RimeWithWeaselHandler::OnNotify, this);
  }
-@@ -117,6 +120,10 @@ void RimeWithWeaselHandler::Initialize() {
+@@ -117,6 +123,10 @@ void RimeWithWeaselHandler::Initialize() {
      rime_api->join_maintenance_thread();
    }
  
@@ -35,7 +45,7 @@ index 709cd7e..fa48bd2 100644
    RimeConfig config = {NULL};
    if (rime_api->config_open("weasel", &config)) {
      if (m_ui) {
-@@ -144,9 +151,11 @@ void RimeWithWeaselHandler::Initialize() {
+@@ -144,9 +154,11 @@ void RimeWithWeaselHandler::Initialize() {
      rime_api->config_close(&config);
    }
    m_last_schema_id.clear();
@@ -47,7 +57,7 @@ index 709cd7e..fa48bd2 100644
    m_active_session = 0;
    m_disabled = true;
    m_session_status_map.clear();
-@@ -215,6 +224,7 @@ DWORD RimeWithWeaselHandler::AddSession(LPWSTR buffer, EatLine eat) {
+@@ -215,6 +227,7 @@ DWORD RimeWithWeaselHandler::AddSession(LPWSTR buffer, EatLine eat) {
  }
  
  DWORD RimeWithWeaselHandler::RemoveSession(WeaselSessionId ipc_id) {
@@ -55,7 +65,7 @@ index 709cd7e..fa48bd2 100644
    if (m_ui)
      m_ui->Hide();
    if (m_disabled)
-@@ -269,8 +279,10 @@ BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
+@@ -269,8 +282,10 @@ BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
    if (m_disabled)
      return FALSE;
    RimeSessionId session_id = to_session_id(ipc_id);
@@ -68,7 +78,7 @@ index 709cd7e..fa48bd2 100644
    // vim_mode when keydown only
    if (!handled && !(keyEvent.mask & ibus::Modifier::RELEASE_MASK)) {
      bool isVimBackInCommandMode =
-@@ -286,12 +298,14 @@ BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
+@@ -286,12 +301,14 @@ BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
      }
    }
    _Respond(ipc_id, eat);
@@ -83,7 +93,7 @@ index 709cd7e..fa48bd2 100644
    DLOG(INFO) << "Commit composition: ipc_id = " << ipc_id;
    if (m_disabled)
      return;
-@@ -301,6 +315,7 @@ void RimeWithWeaselHandler::CommitComposition(WeaselSessionId ipc_id) {
+@@ -301,6 +318,7 @@ void RimeWithWeaselHandler::CommitComposition(WeaselSessionId ipc_id) {
  }
  
  void RimeWithWeaselHandler::ClearComposition(WeaselSessionId ipc_id) {
@@ -91,7 +101,7 @@ index 709cd7e..fa48bd2 100644
    DLOG(INFO) << "Clear composition: ipc_id = " << ipc_id;
    if (m_disabled)
      return;
-@@ -316,6 +331,7 @@ void RimeWithWeaselHandler::SelectCandidateOnCurrentPage(
+@@ -316,6 +334,7 @@ void RimeWithWeaselHandler::SelectCandidateOnCurrentPage(
               << ", index = " << index;
    if (m_disabled)
      return;
@@ -99,7 +109,7 @@ index 709cd7e..fa48bd2 100644
    rime_api->select_candidate_on_current_page(to_session_id(ipc_id), index);
  }
  
-@@ -325,6 +341,7 @@ bool RimeWithWeaselHandler::HighlightCandidateOnCurrentPage(
+@@ -325,6 +344,7 @@ bool RimeWithWeaselHandler::HighlightCandidateOnCurrentPage(
      EatLine eat) {
    DLOG(INFO) << "highlight candidate on current page, ipc_id = " << ipc_id
               << ", index = " << index;
@@ -107,7 +117,7 @@ index 709cd7e..fa48bd2 100644
    bool res = rime_api->highlight_candidate_on_current_page(
        to_session_id(ipc_id), index);
    _Respond(ipc_id, eat);
-@@ -337,6 +354,7 @@ bool RimeWithWeaselHandler::ChangePage(bool backward,
+@@ -337,6 +357,7 @@ bool RimeWithWeaselHandler::ChangePage(bool backward,
                                         EatLine eat) {
    DLOG(INFO) << "change page, ipc_id = " << ipc_id
               << (backward ? "backward" : "foreward");
@@ -115,7 +125,7 @@ index 709cd7e..fa48bd2 100644
    bool res = rime_api->change_page(to_session_id(ipc_id), backward);
    _Respond(ipc_id, eat);
    _UpdateUI(ipc_id);
-@@ -344,6 +362,7 @@ bool RimeWithWeaselHandler::ChangePage(bool backward,
+@@ -344,6 +365,7 @@ bool RimeWithWeaselHandler::ChangePage(bool backward,
  }
  
  void RimeWithWeaselHandler::FocusIn(DWORD client_caps, WeaselSessionId ipc_id) {
@@ -123,7 +133,7 @@ index 709cd7e..fa48bd2 100644
    DLOG(INFO) << "Focus in: ipc_id = " << ipc_id
               << ", client_caps = " << client_caps;
    if (m_disabled)
-@@ -353,6 +372,7 @@ void RimeWithWeaselHandler::FocusIn(DWORD client_caps, WeaselSessionId ipc_id) {
+@@ -353,6 +375,7 @@ void RimeWithWeaselHandler::FocusIn(DWORD client_caps, WeaselSessionId ipc_id) {
  }
  
  void RimeWithWeaselHandler::FocusOut(DWORD param, WeaselSessionId ipc_id) {
@@ -131,7 +141,7 @@ index 709cd7e..fa48bd2 100644
    DLOG(INFO) << "Focus out: ipc_id = " << ipc_id;
    if (m_ui)
      m_ui->Hide();
-@@ -364,6 +384,10 @@ void RimeWithWeaselHandler::UpdateInputPosition(RECT const& rc,
+@@ -364,6 +387,10 @@ void RimeWithWeaselHandler::UpdateInputPosition(RECT const& rc,
    DLOG(INFO) << "Update input position: (" << rc.left << ", " << rc.top
               << "), ipc_id = " << ipc_id
               << ", m_active_session = " << m_active_session;
@@ -142,7 +152,7 @@ index 709cd7e..fa48bd2 100644
    if (m_ui)
      m_ui->UpdateInputPosition(rc);
    if (m_disabled)
-@@ -489,6 +513,7 @@ void RimeWithWeaselHandler::EndMaintenance() {
+@@ -489,6 +516,7 @@ void RimeWithWeaselHandler::EndMaintenance() {
  void RimeWithWeaselHandler::SetOption(WeaselSessionId ipc_id,
                                        const std::string& opt,
                                        bool val) {
@@ -150,7 +160,7 @@ index 709cd7e..fa48bd2 100644
    // from no-session client, not actual typing session
    if (!ipc_id) {
      if (m_global_ascii_mode && opt == "ascii_mode") {
-@@ -510,7 +535,7 @@ void RimeWithWeaselHandler::OnUpdateUI(std::function<void()> const& cb) {
+@@ -510,7 +538,7 @@ void RimeWithWeaselHandler::OnUpdateUI(std::function<void()> const& cb) {
  }
  
  bool RimeWithWeaselHandler::_IsDeployerRunning() {
@@ -159,7 +169,7 @@ index 709cd7e..fa48bd2 100644
    bool deployer_detected = hMutex && GetLastError() == ERROR_ALREADY_EXISTS;
    if (hMutex) {
      CloseHandle(hMutex);
-@@ -751,6 +776,7 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
+@@ -751,6 +779,7 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
      actions.push_back("commit");
      std::wstring commit_text_w = escape_string(u8tow(commit.text));
      body.append(L"commit=").append(commit_text_w).append(L"\n");

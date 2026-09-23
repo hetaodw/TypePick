@@ -6,6 +6,8 @@
 #include <rime_api.h>
 
 namespace typepick {
+// Weasel IPC uses compact 16-bit modifiers, not the native Rime 32-bit mask.
+inline constexpr int WeaselKeyReleaseMask = 1 << 14;
 // Owned by WeaselServer. These methods run on its message thread.
 class WeaselBridge {
  public:

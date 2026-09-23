@@ -49,6 +49,12 @@ def request(command, wp=0, sid=0, body=''):
     if len(data)<4:raise RuntimeError('Short IPC response')
     return struct.unpack('<I',data[:4])[0], data[4:].decode('utf-16-le').rstrip('\0')
 
+def key(sid, code):
+    # Match the TSF client: one down and one compact-mask key-up per key.
+    result=request(4,code,sid)
+    request(4,code | (0x4000 << 16),sid)
+    return result
+
 results={}
 try:
     sid,body=request(2,body='action=session\nsession.client_app=notepad.exe\nsession.client_type=tsf\n.\n')
@@ -63,23 +69,23 @@ try:
     results['candidate_font_point']=int(font[1])
     results['candidate_style_transmitted']=True
     request(6,sid=sid)
-    for ch in 'yanjiu':request(4,ord(ch),sid)
+    for ch in 'yanjiu':key(sid,ord(ch))
     time.sleep(.5)
     window=u.FindWindowW('TypePick.Recommendation.0.1',None)
     if window and u.IsWindowVisible(window):raise RuntimeError('AI appeared without committed context')
     results['empty_context']='no AI popup'
-    request(4,0xff1b,sid)
-    for ch in 'nihao':request(4,ord(ch),sid)
-    _,body=request(4,32,sid)
+    key(sid,0xff1b)
+    for ch in 'nihao':key(sid,ord(ch))
+    _,body=key(sid,32)
     if 'commit=你好' not in body:
         raise RuntimeError('Expected real Pinyin commit, got: '+body[:1500])
     results['pinyin_commit']='你好'
     # Editing active Pinyin must preserve the preceding committed context.
-    request(4,ord('a'),sid)
-    request(4,ord('='),sid)
-    request(4,ord('-'),sid)
-    request(4,0xff08,sid)
-    for ch in 'yanjiu':request(4,ord(ch),sid)
+    key(sid,ord('a'))
+    key(sid,ord('='))
+    key(sid,ord('-'))
+    key(sid,0xff08)
+    for ch in 'yanjiu':key(sid,ord(ch))
     deadline=time.monotonic()+5
     label=''
     while time.monotonic()<deadline:
@@ -90,10 +96,17 @@ try:
     if '研究' not in label:raise RuntimeError('Recommendation popup did not display expected fixture: '+label)
     if '100.0%' not in label:raise RuntimeError('Recommendation popup did not display numeric confidence')
     results['numeric_confidence']='100.0%'
-    _,body=request(4,0xff09,sid)
+    request(4,ord('u') | (0x4000 << 16),sid)
+    if not u.IsWindowVisible(window):raise RuntimeError('Key release hid a valid recommendation')
+    _,body=key(sid,0xff09)
     if 'commit=研究' not in body:raise RuntimeError('Tab did not commit expected recommendation: '+body[:1000])
     results['demo_tab_commit']='研究'
     results['preedit_edit_preserves_context']=True
+    for ch in 'yanjiu':key(sid,ord(ch))
+    deadline=time.monotonic()+5
+    while time.monotonic()<deadline and not u.IsWindowVisible(window):time.sleep(.05)
+    if not u.IsWindowVisible(window):raise RuntimeError('Tab release lost context for the next word')
+    results['real_key_up_flow']='popup and context preserved after letter and Tab release'
     # A second connection catches accidental loss of thread-local request data.
     request(3,sid=sid)
     sid,_=request(2,body='action=session\nsession.client_app=chrome.exe\nsession.client_type=tsf\n.\n')

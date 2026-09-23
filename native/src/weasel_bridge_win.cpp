@@ -182,7 +182,7 @@ void WeaselBridge::Position(const RECT& rect) {
   impl_->caret = rect;
 }
 bool WeaselBridge::BeforeKey(RimeSessionId sid, int key, int mask) {
-  const bool release = (mask & 0x8000) != 0;
+  const bool release = (mask & WeaselKeyReleaseMask) != 0;
   if (release) {
     if (key == 0xff09 && impl_->swallowed_tab) { impl_->swallowed_tab = false; return true; }
     return false;
@@ -218,7 +218,7 @@ bool WeaselBridge::BeforeKey(RimeSessionId sid, int key, int mask) {
   return false;
 }
 void WeaselBridge::AfterKey(RimeSessionId sid, int key, int mask) {
-  if ((mask & 0x8000) || (mask & 0xff)) return;
+  if ((mask & WeaselKeyReleaseMask) || (mask & 0xff)) return;
   if (!((key >= 'a' && key <= 'z') || key == '\'')) return;
   if (!impl_->Allowed(sid)) {
     impl_->log->Write({{"event", "skipped"}, {"reason", impl_->config.enabled ? "app_not_allowed" : "disabled"}});
