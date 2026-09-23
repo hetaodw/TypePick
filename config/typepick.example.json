@@ -1,11 +1,14 @@
 {
   "enabled": false,
   "show_all_confidences": true,
+  "surrounding_context": true,
+  "personal_learning": true,
+  "phrase_completion": true,
   "mode": "jev",
   "model": "jev-1.13.0",
   "allowed_apps": ["notepad.exe"],
   "debounce_ms": 150,
-  "timeout_ms": 600,
+  "timeout_ms": 1500,
   "min_confidence": 0.7,
   "min_margin": 0.1
 }

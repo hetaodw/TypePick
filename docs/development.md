@@ -45,15 +45,18 @@ b2 -j4 --with-filesystem --with-json --with-locale --with-regex --with-serializa
 
 该脚本仅构建 `WeaselServer`、`WeaselTSF` 的 x64 Release 及其项目依赖，不创建完整安装器或32位客户端。使用上游随仓库提供的 WTL、WinSparkle 等资源，保留其许可证。在可丢弃的 Windows 测试环境中，才继续进行小狼毫部署、服务启动和 TSF 注册验收。当前脚本不自动修改注册表、用户方案或已安装输入法。
 
-开发版暂沿用小狼毫的服务名、TSF 标识、注册表及用户目录。**不能与原版作为两个独立输入法并存安装**；产品化前须设计隔离标识和升级/回滚路径。
+TypePick 使用独立的服务名、TSF CLSID、注册表和用户目录，可与原版小狼毫区分。发布流程见 `windows-release.md`。完整安装测试仅在可丢弃的 CI 环境中执行。
 
 ## 启用推荐
 
-在测试环境的小狼毫用户资料目录创建 `typepick.json`，参考 `config/typepick.example.json`：
+在 `%APPDATA%\TypePick` 创建 `typepick.json`，也可使用设置程序，参考 `config/typepick.example.json`：
 
 - `enabled: false` 为默认；改成 `true` 才启用。
 - `mode: "demo"` 本地演示；`mode: "jev"` 使用远端模型。
-- `allowed_apps` 目前只能包含 `notepad.exe`；增加其他应用会令配置校验失败并关闭 AI。
+- `allowed_apps` 支持 `notepad.exe`、`msedge.exe`、`chrome.exe`、`winword.exe`、`weixin.exe`、`wechat.exe`，其他名称仍拒绝。扩展应用需安全 TSF 输入范围，未知范围不推荐。
+- `surrounding_context` 读取光标前最近 100 个 UTF-16 单元；关闭后仅累计连续上屏文字。
+- `personal_learning` 控制选词及少量前文的本机学习；`phrase_completion` 控制本地短句补全。自定义词、短句通过设置编辑。
+- `show_all_confidences` 保留低置信度有效结果及数字显示，弃权或错误不显示。
 - `debounce_ms` 范围 0–2000；`timeout_ms` 范围 100–3000。
 - 置信度与概率差阈值范围 0–1。无效 JSON 或参数会关闭 AI。
 
@@ -80,4 +83,4 @@ b2 -j4 --with-filesystem --with-json --with-locale --with-regex --with-serializa
 
 读取输出中的 `status`：`recommended` 表示答案通过校验；`missing_api_key`、`timeout`、`uncertain`、`abstained`、`http_XXX` 等表示不采用。命令执行成功不等于模型选对，仍需中文歧义词数据集评测。工具无推荐时不伪造上屏结果。
 
-本版无设置界面、托盘错误提示、请求缓存、全应用敏感输入检测或安装器。现有验证范围见 `verification.md`。
+本版提供设置、词库编辑、NSIS 安装器和元数据诊断日志。扩展应用支持依赖宿主提供的 TSF 信息，不是全应用通用敏感输入检测。服务通信测试不能替代真实应用、焦点及 DPI 验收。
