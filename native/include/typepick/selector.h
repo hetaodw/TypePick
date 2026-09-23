@@ -27,6 +27,7 @@ struct Config {
   std::string mode = "jev", model = "jev-1.13.0";
   std::vector<std::string> allowed_apps = {"notepad.exe"};
   int debounce_ms = 150, timeout_ms = 600;
+  int local_port = 18765;
   double min_confidence = 0.7, min_margin = 0.1;
 };
 struct Decision {

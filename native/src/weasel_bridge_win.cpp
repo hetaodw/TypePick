@@ -216,7 +216,7 @@ struct WeaselBridge::Impl {
     std::wostringstream score;
     score.imbue(std::locale::classic());
     score << std::fixed << std::setprecision(1) << result->decision.confidence * 100.0;
-    label = (config.mode == "demo" ? L"TypePick 演示 · " : L"TypePick AI · ") +
+    label = (config.mode == "demo" ? L"TypePick 演示 · " : config.mode == "laya" ? L"TypePick 本地 Laya · " : L"TypePick AI · ") +
         score.str() + L"% · " + Wide(result->snapshot.candidates[*result->decision.index]) + L"    [Tab 采用]";
     ShowLabel(&result->snapshot);
   }

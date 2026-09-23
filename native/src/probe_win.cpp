@@ -11,12 +11,12 @@ int wmain(int argc, wchar_t** argv) {
     std::map<std::wstring, std::wstring> args;
     for (int i = 1; i < argc; ++i) {
       const std::wstring name = argv[i];
-      if (name == L"--demo" || name == L"--live" || name == L"--bridge-smoke" || name == L"--local-smoke" || name == L"--edit-preedit" || name == L"--show-all-confidences") args[name] = L"1";
+      if (name == L"--demo" || name == L"--live" || name == L"--local" || name == L"--bridge-smoke" || name == L"--local-smoke" || name == L"--edit-preedit" || name == L"--show-all-confidences") args[name] = L"1";
       else if (i + 1 < argc) args[name] = argv[++i];
       else throw std::runtime_error("missing argument");
     }
     if (!args.count(L"--rime") || !args.count(L"--data") || !args.count(L"--user"))
-      throw std::runtime_error("usage: TypePickProbe --rime rime.dll --data data --user scratch [--demo|--live|--bridge-smoke] [--input yanjiu] [--context text] [--timeout-ms 100..3000]");
+      throw std::runtime_error("usage: TypePickProbe --rime rime.dll --data data --user scratch [--demo|--live|--local|--bridge-smoke] [--port 18765] [--input yanjiu] [--context text] [--timeout-ms 100..3000]");
     Config probe_config;
     if (args.count(L"--timeout-ms")) {
       const auto& value = args[L"--timeout-ms"];
@@ -25,6 +25,7 @@ int wmain(int argc, wchar_t** argv) {
       probe_config = ParseConfig({{"timeout_ms", std::stoi(value)}});
     }
     probe_config.show_all_confidences = args.count(L"--show-all-confidences") != 0;
+    if (args.count(L"--port")) probe_config.local_port = ParseConfig({{"local_port", std::stoi(args[L"--port"])}}).local_port;
     const auto dll = std::filesystem::absolute(args[L"--rime"]);
     HMODULE module = LoadLibraryExW(dll.c_str(), nullptr, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
     if (!module) throw std::runtime_error("could not load rime.dll");
@@ -145,9 +146,9 @@ int wmain(int argc, wchar_t** argv) {
       for (int i = 0; i < ctx.menu.num_candidates && i < 10; ++i) snap.candidates.emplace_back(ctx.menu.candidates[i].text);
       api->free_context(&ctx);
       result["candidates"] = snap.candidates;
-      if (args.count(L"--demo") || args.count(L"--live")) {
+      if (args.count(L"--demo") || args.count(L"--live") || args.count(L"--local")) {
         Config c = probe_config; c.enabled = true; c.debounce_ms = 0;
-        c.mode = args.count(L"--live") ? "jev" : "demo";
+        c.mode = args.count(L"--local") ? "laya" : args.count(L"--live") ? "jev" : "demo";
         const auto started = Clock::now();
         Selector selector(c, CallJev); selector.Submit(snap);
         const auto deadline = Clock::now() + std::chrono::seconds(5);

@@ -44,37 +44,43 @@ Decision CallJev(const Snapshot& s, const Config& c) {
     for (size_t i = 0; i < s.candidates.size(); ++i) if (s.candidates[i] == target) choice = i;
     return Decision{choice, 1.0, "demo"};
   }
-  wchar_t key[4096] = {};
-  const DWORD n = GetEnvironmentVariableW(L"TYPESAFE_API_KEY", key, 4096);
-  if (n >= 4096) return Failure("invalid_api_key");
-  std::wstring key_value(key, n);
-  SecureZeroMemory(key, sizeof(key));
-  if (key_value.empty()) {
-    PCREDENTIALW credential = nullptr;
-    if (CredReadW(L"TypePick/Jev", CRED_TYPE_GENERIC, 0, &credential)) {
-      if (credential->CredentialBlobSize % sizeof(wchar_t) == 0)
-        key_value.assign(reinterpret_cast<wchar_t*>(credential->CredentialBlob),
-                         credential->CredentialBlobSize / sizeof(wchar_t));
-      CredFree(credential);
+  const bool local = c.mode == "laya";
+  std::wstring key_value;
+  if (!local) {
+    wchar_t key[4096] = {};
+    const DWORD n = GetEnvironmentVariableW(L"TYPESAFE_API_KEY", key, 4096);
+    if (n >= 4096) return Failure("invalid_api_key");
+    key_value.assign(key, n);
+    SecureZeroMemory(key, sizeof(key));
+    if (key_value.empty()) {
+      PCREDENTIALW credential = nullptr;
+      if (CredReadW(L"TypePick/Jev", CRED_TYPE_GENERIC, 0, &credential)) {
+        if (credential->CredentialBlobSize % sizeof(wchar_t) == 0)
+          key_value.assign(reinterpret_cast<wchar_t*>(credential->CredentialBlob),
+                           credential->CredentialBlobSize / sizeof(wchar_t));
+        CredFree(credential);
+      }
     }
+    if (key_value.empty()) return Failure("missing_api_key");
+    // Credentials are never included in logs or plaintext settings.
+    if (key_value.find_first_of(L"\r\n") != std::wstring::npos) return Failure("invalid_api_key");
   }
-  if (key_value.empty()) return Failure("missing_api_key");
-  // Credentials are never included in logs or plaintext settings.
-  if (key_value.find_first_of(L"\r\n") != std::wstring::npos) return Failure("invalid_api_key");
   const auto deadline = Clock::now() + std::chrono::milliseconds(c.timeout_ms);
-  InternetHandle session(WinHttpOpen(L"TypePick/0.1", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
+  InternetHandle session(WinHttpOpen(L"TypePick/0.1", local ? WINHTTP_ACCESS_TYPE_NO_PROXY : WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
                                     WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0));
   if (!session || !Remaining(session, deadline)) return Failure("network_error");
-  InternetHandle connection(WinHttpConnect(session, L"api.typesafe.ai", INTERNET_DEFAULT_HTTPS_PORT, 0));
+  InternetHandle connection(WinHttpConnect(session, local ? L"127.0.0.1" : L"api.typesafe.ai",
+      local ? static_cast<INTERNET_PORT>(c.local_port) : INTERNET_DEFAULT_HTTPS_PORT, 0));
   if (!connection) return Failure("network_error");
-  InternetHandle request(WinHttpOpenRequest(connection, L"POST", L"/v1/systemone", nullptr,
-      WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE));
+  InternetHandle request(WinHttpOpenRequest(connection, L"POST", local ? L"/predict" : L"/v1/systemone", nullptr,
+      WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, local ? 0 : WINHTTP_FLAG_SECURE));
   if (!request) return Failure("network_error");
   DWORD redirect_policy = WINHTTP_OPTION_REDIRECT_POLICY_NEVER;
   if (!WinHttpSetOption(request, WINHTTP_OPTION_REDIRECT_POLICY, &redirect_policy, sizeof(redirect_policy)))
     return Failure("network_error");
   const auto payload = MakeRequest(s, c).dump();
-  const auto headers = L"Content-Type: application/json\r\nAuthorization: Bearer " + key_value + L"\r\n";
+  const std::wstring headers = local ? L"Content-Type: application/json\r\n" :
+      L"Content-Type: application/json\r\nAuthorization: Bearer " + key_value + L"\r\n";
   if (!Remaining(request, deadline) ||
       !WinHttpSendRequest(request, headers.c_str(), (DWORD)-1,
           (void*)payload.data(), (DWORD)payload.size(), (DWORD)payload.size(), 0) ||

@@ -13,7 +13,7 @@
 ## 第一版交互
 
 1. 正常输入拼音，Rime 按原顺序显示候选。
-2. 停顿 150 ms 后，后台请求 Jev，从当前页候选中选择，允许弃权。
+2. 停顿 150 ms 后，后台请求所选模型（云端 Jev 或本地 Laya），从当前页候选中选择，允许弃权。
 3. 在候选面板辅助行显示 `TypePick AI · 数字置信度 · 推荐词 [Tab 采用]`，不改变编号顺序。旧客户端回退到独立浮窗。开发模式保留低置信度建议，弃权和错误仍不展示。
 4. Tab 接受；空格、数字键仍交给原输入法。继续输入、失焦、换页、编辑或切换应用时，旧推荐作废。
 
@@ -23,7 +23,7 @@
 
 ## 快速验证（Windows x64 / PowerShell 7）
 
-需要 Visual Studio C++ Build Tools、Windows SDK、CMake/Ninja 组件和 Git。
+需要 Visual Studio C++ Build Tools、Windows SDK、CMake/Ninja 组件、Python 3（HTTP 适配测试）和 Git。
 
 ```powershell
 git clone --recurse-submodules https://github.com/hetaodw/TypePick.git
@@ -49,6 +49,16 @@ cd TypePick
 脚本在 `build/weasel` 生成开发副本，接入按键、上屏、上下文、焦点和候选变化事件。完整构建、源码归档和 NSIS 打包流程见 `scripts/Build-Installer.ps1` 及 GitHub Actions。
 
 完整依赖、配置及当前限制见 [开发说明](docs/development.md)，数据流见 [架构说明](docs/architecture.md)，当前验证结果见 [验证记录](docs/verification.md)。
+
+## 本地 Laya
+
+设置中勾选“本地 Laya（无需密钥）”，启用智能推荐并保存启动。需要自行运行兼容的 Laya HTTP 服务；安装包不捆绑模型或 Python 环境。
+
+默认服务为 `http://127.0.0.1:18765`：`GET /health` 用于健康检查，真正的选词请求发往 `POST /predict`。配置对应 `mode: "laya"`、`local_port: 18765`，端口可在配置中修改（1–65535），地址固定为本机。设置页保留已配置端口。服务接收 `state` 和 `questions`，返回 `answers.candidate`，含 `type: "choice"`、`choice`、`confidence` 及覆盖所有候选和 `abstain` 的 `probabilities`。
+
+本地模式不读取或发送 Jev 密钥、不使用系统代理、不跟随重定向，失败时不会回退云端。前文范围与敏感输入限制保持一致，推荐标注“本地 Laya”及数字置信度。模型仍可弃权；它负责挑选已有候选，不生成长句。个人词库和短句补全优先级不变。
+
+可使用 `TypePickProbe --local --port 18765` 配合原有 `--rime`、`--data`、`--user` 参数验证真实选词。离线 HTTP 测试覆盖低置信度推荐、弃权、异常返回、503、拒绝重定向、超大响应和超时。
 
 ## Jev 配置与数据范围
 

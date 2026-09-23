@@ -6,6 +6,7 @@
   "phrase_completion": true,
   "mode": "jev",
   "model": "jev-1.13.0",
+  "local_port": 18765,
   "allowed_apps": ["notepad.exe"],
   "debounce_ms": 150,
   "timeout_ms": 1500,

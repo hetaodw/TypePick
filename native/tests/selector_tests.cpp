@@ -35,6 +35,13 @@ int main() {
     bool rejected = false;
     try { ParseConfig({{"allowed_apps", {"unknown.exe"}}}); } catch (...) { rejected = true; }
     CHECK(rejected);
+    CHECK(ParseConfig({{"mode", "laya"}}).local_port == 18765);
+    rejected = false;
+    try { ParseConfig({{"mode", "laya"}, {"local_port", 65536}}); } catch (...) { rejected = true; }
+    CHECK(rejected);
+    const auto local_request = MakeRequest(Sample(), ParseConfig({{"mode", "laya"}}));
+    CHECK(!local_request.contains("model"));
+    CHECK(local_request["questions"]["candidate"]["criteria"]["c1"] == "烟酒");
     CHECK(ParseConfig({{"allowed_apps", {"Chrome.exe", "winword.exe", "weixin.exe"}}}).allowed_apps[0] == "chrome.exe");
     auto request = MakeRequest(Sample(), c);
     CHECK(request["questions"]["candidate"]["criteria"]["c1"] == "烟酒");

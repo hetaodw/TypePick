@@ -15,6 +15,8 @@ constexpr wchar_t CredentialTarget[] = L"TypePick/Jev";
 HWND main_window, key_edit, enabled_check, confidence_check, timeout_edit, status_label;
 HWND context_check, learning_check, completion_check, edge_check, chrome_check, word_check, wechat_check;
 HWND vocabulary_window, terms_edit, phrases_edit;
+HWND local_check, privacy_label;
+int local_port = 18765;
 HFONT ui_font;
 fs::path UserDir() {
   PWSTR p = nullptr;
@@ -77,6 +79,15 @@ void Message(const wchar_t* text, bool error = false) {
   MessageBoxW(main_window, text, L"TypePick", MB_OK | (error ? MB_ICONERROR : MB_ICONINFORMATION));
 }
 void Status() {
+  if (local_check && SendMessageW(local_check, BM_GETCHECK, 0, 0) == BST_CHECKED) {
+    const auto text = L"本地服务：127.0.0.1:" + std::to_wstring(local_port) + L"（无需 Jev 密钥）";
+    SetWindowTextW(status_label, text.c_str());
+    SetWindowTextW(privacy_label, L"拼音、候选词及最近 100 字仅发送给本机 Laya 服务。\n请保持服务运行；连接失败时不会自动切换到云端。");
+    EnableWindow(key_edit, FALSE);
+    return;
+  }
+  EnableWindow(key_edit, TRUE);
+  SetWindowTextW(privacy_label, L"AI 会发送当前拼音、候选词及最近 100 字给 Typesafe/Jev。\n个人学习记录保存在本机；敏感输入框暂停所有推荐。");
   SetWindowTextW(status_label, HasKey() ? L"密钥状态：已保存在本机 Windows 凭据管理器" : L"密钥状态：尚未设置，普通拼音输入仍可使用");
 }
 bool Launch(const fs::path& exe, const wchar_t* arguments = nullptr, bool wait = false) {
@@ -128,8 +139,10 @@ bool Save() {
   SetWindowTextW(key_edit, L"");
   Status();
   const bool enabled = SendMessageW(enabled_check, BM_GETCHECK, 0, 0) == BST_CHECKED;
-  if (enabled && !HasKey()) { Message(L"请先输入密钥，或导入包含 key=... 的 .env 文件。", true); return false; }
-  nlohmann::json config = {{"enabled", enabled}, {"mode", "jev"}, {"model", "jev-1.13.0"},
+  const bool local = Checked(local_check);
+  if (enabled && !local && !HasKey()) { Message(L"请先输入密钥，或导入包含 key=... 的 .env 文件。", true); return false; }
+  nlohmann::json config = {{"enabled", enabled}, {"mode", local ? "laya" : "jev"},
+    {"model", local ? "laya/multilingual" : "jev-1.13.0"}, {"local_port", local_port},
     {"allowed_apps", {"notepad.exe"}}, {"debounce_ms", 150}, {"timeout_ms", ms},
     {"min_confidence", 0.7}, {"min_margin", 0.1},
     {"show_all_confidences", SendMessageW(confidence_check, BM_GETCHECK, 0, 0) == BST_CHECKED}};
@@ -226,8 +239,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         0, 0, CLEARTYPE_QUALITY, 0, L"Microsoft YaHei UI");
       Control(L"STATIC", L"TypePick  ·  拼音输入 + 智能候选", 0, 24, 16, 550, 30);
       Control(L"STATIC", L"Win + 空格切换到 TypePick；空格或数字选词，Tab 采用推荐。\n候选顺序保持稳定，AI / 个人词库 / 短句补全分别标注。", 0, 24, 52, 550, 52);
-      enabled_check = Control(L"BUTTON", L"启用智能推荐", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 110, 550, 28);
-      Control(L"STATIC", L"AI 会发送当前拼音、候选词及最近 100 字给 Typesafe/Jev。\n个人学习记录保存在本机；敏感输入框暂停所有推荐。", 0, 24, 145, 550, 50);
+      enabled_check = Control(L"BUTTON", L"启用智能推荐", BS_AUTOCHECKBOX | WS_TABSTOP, 24, 110, 220, 28);
+      local_check = Control(L"BUTTON", L"本地 Laya（无需密钥）", BS_AUTOCHECKBOX | WS_TABSTOP, 260, 110, 305, 28, 108);
+      privacy_label = Control(L"STATIC", L"", 0, 24, 145, 550, 50);
       Control(L"STATIC", L"Jev API Key（留空保留现有密钥）", 0, 24, 204, 550, 25);
       key_edit = Control(L"EDIT", L"", ES_PASSWORD | ES_AUTOHSCROLL | WS_TABSTOP, 24, 233, 380, 30);
       SendMessageW(key_edit, EM_SETLIMITTEXT, 2500, 0);
@@ -259,6 +273,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         if (in) {
           auto raw = nlohmann::json::parse(in);
           auto c = typepick::ParseConfig(raw);
+          local_port = c.local_port;
+          SendMessageW(local_check, BM_SETCHECK, c.mode == "laya" ? BST_CHECKED : BST_UNCHECKED, 0);
           // Existing MVP settings migrate to the requested development behavior.
           SendMessageW(confidence_check, BM_SETCHECK,
               raw.value("show_all_confidences", true) ? BST_CHECKED : BST_UNCHECKED, 0);
@@ -271,10 +287,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
           for (const auto& app : apps) if (std::find(c.allowed_apps.begin(), c.allowed_apps.end(), app.second) != c.allowed_apps.end()) SendMessageW(app.first, BM_SETCHECK, BST_CHECKED, 0);
         }
       } catch (...) { Message(L"现有配置无法读取。请在此窗口重新保存设置。", true); }
+      Status();
       return 0;
     }
     if (msg == WM_COMMAND) {
       switch (LOWORD(wp)) {
+        case 108: Status(); break;
         case 101: ImportEnv(); break;
         case 102:
           if (Save()) {
