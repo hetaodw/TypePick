@@ -1,5 +1,5 @@
 diff --git a/RimeWithWeasel/RimeWithWeasel.cpp b/RimeWithWeasel/RimeWithWeasel.cpp
-index 709cd7e..7f932cc 100644
+index 709cd7e..7f474c2 100644
 --- a/RimeWithWeasel/RimeWithWeasel.cpp
 +++ b/RimeWithWeasel/RimeWithWeasel.cpp
 @@ -1,6 +1,8 @@
@@ -169,7 +169,31 @@ index 709cd7e..7f932cc 100644
    bool deployer_detected = hMutex && GetLastError() == ERROR_ALREADY_EXISTS;
    if (hMutex) {
      CloseHandle(hMutex);
-@@ -751,6 +779,7 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
+@@ -738,6 +766,12 @@ inline std::string _GetLabelText(const std::vector<Text>& labels,
+   return wtou8(std::wstring(buffer));
+ }
+ 
++DWORD RimeWithWeaselHandler::TypePickContext(DWORD kind, DWORD ipc_id, const std::wstring& text) {
++  const auto found = m_session_status_map.find(ipc_id);
++  if (!m_typepick || found == m_session_status_map.end()) return 0;
++  return m_typepick->UpdateContext(found->second.session_id, kind, text);
++}
++
+ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
+   std::wstring body;
+   body.reserve(4096);
+@@ -746,11 +780,18 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
+ 
+   SessionStatus& session_status = get_session_status(ipc_id);
+   RimeSessionId session_id = session_status.session_id;
++  const auto extra_commit = m_typepick ? m_typepick->TakeCommit(session_id) : std::string();
++  if (!extra_commit.empty()) {
++    actions.push_back("commit");
++    body.append(L"commit=").append(escape_string(u8tow(extra_commit))).append(L"\n");
++    m_typepick->OnCommit(session_id, extra_commit.c_str());
++  }
+   RIME_STRUCT(RimeCommit, commit);
+   if (rime_api->get_commit(session_id, &commit)) {
      actions.push_back("commit");
      std::wstring commit_text_w = escape_string(u8tow(commit.text));
      body.append(L"commit=").append(commit_text_w).append(L"\n");
@@ -343,8 +367,41 @@ index 88fbaa2..690c86c 100644
        <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
        <AdditionalOptions>/Zc:threadSafeInit- %(AdditionalOptions)</AdditionalOptions>
        <LanguageStandard>stdcpp17</LanguageStandard>
+diff --git a/WeaselIPC/WeaselClientImpl.cpp b/WeaselIPC/WeaselClientImpl.cpp
+index 26122ad..bac74b8 100644
+--- a/WeaselIPC/WeaselClientImpl.cpp
++++ b/WeaselIPC/WeaselClientImpl.cpp
+@@ -96,6 +96,16 @@ bool ClientImpl::HighlightCandidateOnCurrentPage(size_t index) {
+   return ret != 0;
+ }
+ 
++DWORD ClientImpl::TypePickContext(DWORD kind, const std::wstring& text) {
++  if (!_Active() || text.size() > 100) return 0;
++  if (kind) channel << text.c_str();
++  return static_cast<DWORD>(_SendMessage(WEASEL_IPC_TYPEPICK_CONTEXT, kind, session_id));
++}
++
++DWORD Client::TypePickContext(DWORD kind, const std::wstring& text) {
++  return m_pImpl->TypePickContext(kind, text);
++}
++
+ bool ClientImpl::ChangePage(bool backward) {
+   if (!_Active())
+     return false;
+diff --git a/WeaselIPC/WeaselClientImpl.h b/WeaselIPC/WeaselClientImpl.h
+index 7602792..1330922 100644
+--- a/WeaselIPC/WeaselClientImpl.h
++++ b/WeaselIPC/WeaselClientImpl.h
+@@ -18,6 +18,7 @@ class ClientImpl {
+   void EndMaintenance();
+   bool Echo();
+   bool ProcessKeyEvent(KeyEvent const& keyEvent);
++  DWORD TypePickContext(DWORD kind, const std::wstring& text = L"");
+   bool CommitComposition();
+   bool ClearComposition();
+   bool SelectCandidateOnCurrentPage(size_t index);
 diff --git a/WeaselIPCServer/WeaselServerImpl.cpp b/WeaselIPCServer/WeaselServerImpl.cpp
-index 0c27644..2da8211 100644
+index 0c27644..5da2ee4 100644
 --- a/WeaselIPCServer/WeaselServerImpl.cpp
 +++ b/WeaselIPCServer/WeaselServerImpl.cpp
 @@ -15,6 +15,8 @@ class PipeServer : public PipeChannel<DWORD, PipeMessage> {
@@ -392,7 +449,34 @@ index 0c27644..2da8211 100644
    };
    pipeThread = std::make_unique<boost::thread>(
        [this, &listener]() { channel->Listen(listener); });
-@@ -415,6 +428,16 @@ void ServerImpl::HandlePipeMessage(PipeMessage pipe_msg, _Resp resp) {
+@@ -225,6 +238,18 @@ DWORD ServerImpl::OnEndSession(WEASEL_IPC_COMMAND uMsg,
+   return m_pRequestHandler->RemoveSession(lParam);
+ }
+ 
++DWORD ServerImpl::OnTypePickContext(WEASEL_IPC_COMMAND, DWORD kind, DWORD session) {
++  if (!m_pRequestHandler || kind > 3) return 0;
++  std::wstring text;
++  if (kind == 3) {
++    const auto* buffer = reinterpret_cast<const wchar_t*>(channel->ReceiveBuffer());
++    const size_t length = wcsnlen(buffer, 101);
++    if (length > 100) return 0;
++    text.assign(buffer, length);
++  }
++  return m_pRequestHandler->TypePickContext(kind, session, text);
++}
++
+ DWORD ServerImpl::OnKeyEvent(WEASEL_IPC_COMMAND uMsg,
+                              DWORD wParam,
+                              DWORD lParam) {
+@@ -396,6 +421,7 @@ void ServerImpl::HandlePipeMessage(PipeMessage pipe_msg, _Resp resp) {
+   PIPE_MSG_HANDLE(WEASEL_IPC_START_SESSION, OnStartSession)
+   PIPE_MSG_HANDLE(WEASEL_IPC_END_SESSION, OnEndSession)
+   PIPE_MSG_HANDLE(WEASEL_IPC_PROCESS_KEY_EVENT, OnKeyEvent)
++  PIPE_MSG_HANDLE(WEASEL_IPC_TYPEPICK_CONTEXT, OnTypePickContext)
+   PIPE_MSG_HANDLE(WEASEL_IPC_SHUTDOWN_SERVER, OnShutdownServer)
+   PIPE_MSG_HANDLE(WEASEL_IPC_FOCUS_IN, OnFocusIn)
+   PIPE_MSG_HANDLE(WEASEL_IPC_FOCUS_OUT, OnFocusOut)
+@@ -415,6 +441,16 @@ void ServerImpl::HandlePipeMessage(PipeMessage pipe_msg, _Resp resp) {
    resp(result);
  }
  
@@ -410,7 +494,7 @@ index 0c27644..2da8211 100644
      : PipeChannel(std::move(pn_cmd), s) {}
  
 diff --git a/WeaselIPCServer/WeaselServerImpl.h b/WeaselIPCServer/WeaselServerImpl.h
-index e826d06..1ceeca9 100644
+index e826d06..26e0925 100644
 --- a/WeaselIPCServer/WeaselServerImpl.h
 +++ b/WeaselIPCServer/WeaselServerImpl.h
 @@ -29,8 +29,10 @@ class ServerImpl : public CWindowImpl<ServerImpl, CWindow, ServerWinTraits>
@@ -424,6 +508,14 @@ index e826d06..1ceeca9 100644
    LRESULT OnColorChange(UINT uMsg,
                          WPARAM wParam,
                          LPARAM lParam,
+@@ -55,6 +57,7 @@ class ServerImpl : public CWindowImpl<ServerImpl, CWindow, ServerWinTraits>
+   DWORD OnEcho(WEASEL_IPC_COMMAND uMsg, DWORD wParam, DWORD lParam);
+   DWORD OnStartSession(WEASEL_IPC_COMMAND uMsg, DWORD wParam, DWORD lParam);
+   DWORD OnEndSession(WEASEL_IPC_COMMAND uMsg, DWORD wParam, DWORD lParam);
++  DWORD OnTypePickContext(WEASEL_IPC_COMMAND, DWORD, DWORD);
+   DWORD OnKeyEvent(WEASEL_IPC_COMMAND uMsg, DWORD wParam, DWORD lParam);
+   DWORD OnShutdownServer(WEASEL_IPC_COMMAND uMsg, DWORD wParam, DWORD lParam);
+   DWORD OnFocusIn(WEASEL_IPC_COMMAND uMsg, DWORD wParam, DWORD lParam);
 diff --git a/WeaselServer/WeaselServer.cpp b/WeaselServer/WeaselServer.cpp
 index b4cf8b2..af88a00 100644
 --- a/WeaselServer/WeaselServer.cpp
@@ -652,6 +744,113 @@ index c5d28b9..3332552 100644
 -    0x4b42,
 -    {0xa9, 0x6d, 0xce, 0xc7, 0xc5, 0x0e, 0x0e, 0xae}};
 +const GUID GUID_IME_MODE_PRESERVED_KEY = {0xe54c4535, 0x6993, 0x54d6, {0xbf, 0x45, 0x0f, 0x69, 0xed, 0x25, 0xab, 0x81}};
+diff --git a/WeaselTSF/KeyEventSink.cpp b/WeaselTSF/KeyEventSink.cpp
+index 6a18c13..d9089bd 100644
+--- a/WeaselTSF/KeyEventSink.cpp
++++ b/WeaselTSF/KeyEventSink.cpp
+@@ -3,6 +3,86 @@
+ #include "WeaselTSF.h"
+ #include <KeyEvent.h>
+ #include "CandidateList.h"
++#include "EditSession.h"
++#include <inputscope.h>
++
++// Read only in a synchronous TSF edit session; never scrape window text.
++class TypePickContextSession : public CEditSession {
++ public:
++  TypePickContextSession(WeaselTSF* service, ITfContext* context, DWORD caps)
++      : CEditSession(service, context), capabilities(caps) {}
++  STDMETHODIMP DoEditSession(TfEditCookie ec) {
++    kind = _pTextService->CaptureTypePickContext(_pContext, ec, capabilities, text);
++    return S_OK;
++  }
++  DWORD kind = 1, capabilities;
++  std::wstring text;
++};
++
++void WeaselTSF::RequestTypePickContext(ITfContext* context) {
++  if (!context || !_EnsureServerConnected()) return;
++  const DWORD caps = m_client.TypePickContext(0);
++  if (!(caps & 1)) return;
++  auto* read = new TypePickContextSession(this, context, caps);
++  HRESULT result = E_FAIL;
++  HRESULT requested = context->RequestEditSession(_tfClientId, read, TF_ES_SYNC | TF_ES_READ, &result);
++  // Failed locks/unknown scopes disable this key's recommendation, not typing.
++  m_client.TypePickContext(SUCCEEDED(requested) && SUCCEEDED(result) ? read->kind : 1, read->text);
++  read->Release();
++}
++
++DWORD WeaselTSF::CaptureTypePickContext(ITfContext* context, TfEditCookie ec, DWORD caps, std::wstring& text) {
++  GUITHREADINFO gui = {sizeof(gui)};
++  if (GetGUIThreadInfo(GetCurrentThreadId(), &gui) && gui.hwndFocus) {
++    wchar_t cls[64] = {};
++    GetClassNameW(gui.hwndFocus, cls, 64);
++    if ((_wcsicmp(cls, L"Edit") == 0 || wcsstr(cls, L"RichEdit") || wcsstr(cls, L"RICHEDIT")) &&
++        (GetWindowLongPtrW(gui.hwndFocus, GWL_STYLE) & ES_PASSWORD)) return 1;
++  }
++  TF_SELECTION selection = {};
++  ULONG fetched = 0;
++  if (FAILED(context->GetSelection(ec, TF_DEFAULT_SELECTION, 1, &selection, &fetched)) || fetched != 1) return 1;
++  com_ptr<ITfRange> range; range.Attach(selection.range);
++  bool safe = (caps & 4) != 0; // Plain-text Notepad fallback for absent scope metadata.
++  com_ptr<ITfProperty> property;
++  if (SUCCEEDED(context->GetProperty(GUID_PROP_INPUTSCOPE, &property)) && property) {
++    VARIANT value; VariantInit(&value);
++    if (SUCCEEDED(property->GetValue(ec, range, &value)) && value.vt == VT_UNKNOWN && value.punkVal) {
++      com_ptr<ITfInputScope> scope;
++      if (SUCCEEDED(value.punkVal->QueryInterface(IID_ITfInputScope, reinterpret_cast<void**>(&scope)))) {
++        InputScope* scopes = nullptr; UINT count = 0;
++        if (SUCCEEDED(scope->GetInputScopes(&scopes, &count)) && count) {
++          safe = true;
++          for (UINT i = 0; i < count; ++i) {
++            const int s = static_cast<int>(scopes[i]);
++            // Only normal prose/search/chat. Password/private/PIN, identifiers,
++            // unknown and mixed scopes are excluded before any text is read.
++            if (s != 0 && s != 50 && s != 57 && s != 58 && s != 68) safe = false;
++          }
++        }
++        CoTaskMemFree(scopes);
++      }
++    }
++    VariantClear(&value);
++  }
++  if (!safe) return 1;
++  if (!(caps & 2)) return 2;
++  if (_pComposition) {
++    range.Release();
++    if (FAILED(_pComposition->GetRange(&range))) return 2;
++  } else {
++    BOOL empty = FALSE;
++    if (FAILED(range->IsEmpty(ec, &empty)) || !empty) return 1;
++  }
++  if (FAILED(range->Collapse(ec, TF_ANCHOR_START))) return 2;
++  LONG moved = 0;
++  if (FAILED(range->ShiftStart(ec, -100, &moved, nullptr))) return 2;
++  wchar_t buffer[100]; ULONG length = 0;
++  if (FAILED(range->GetText(ec, 0, buffer, 100, &length))) return 2;
++  text.assign(buffer, length);
++  if (!text.empty() && text[0] >= 0xdc00 && text[0] <= 0xdfff) text.erase(0, 1);
++  return 3;
++}
+ 
+ static weasel::KeyEvent prevKeyEvent;
+ static BOOL prevfEaten = FALSE;
+@@ -92,6 +172,7 @@ STDMETHODIMP WeaselTSF::OnTestKeyDown(ITfContext* pContext,
+     *pfEaten = TRUE;
+     return S_OK;
+   }
++  RequestTypePickContext(pContext);
+   _ProcessKeyEvent(wParam, lParam, pfEaten);
+   _UpdateComposition(pContext);
+   if (*pfEaten)
+@@ -108,6 +189,7 @@ STDMETHODIMP WeaselTSF::OnKeyDown(ITfContext* pContext,
+     _fTestKeyDownPending = FALSE;
+     *pfEaten = TRUE;
+   } else {
++    RequestTypePickContext(pContext);
+     _ProcessKeyEvent(wParam, lParam, pfEaten);
+     _UpdateComposition(pContext);
+   }
 diff --git a/WeaselTSF/LanguageBar.cpp b/WeaselTSF/LanguageBar.cpp
 index 41d8f0d..8a6eb19 100644
 --- a/WeaselTSF/LanguageBar.cpp
@@ -746,20 +945,107 @@ index 53290b0..893e344 100644
                count++;
            } while (Process32Next(snap, &pe));
          }
+diff --git a/WeaselTSF/WeaselTSF.h b/WeaselTSF/WeaselTSF.h
+index 1fc29cd..272fc64 100644
+--- a/WeaselTSF/WeaselTSF.h
++++ b/WeaselTSF/WeaselTSF.h
+@@ -86,6 +86,8 @@ class WeaselTSF : public ITfTextInputProcessorEx,
+ 
+   /* ITfEditSession */
+   STDMETHODIMP DoEditSession(TfEditCookie ec);
++  DWORD CaptureTypePickContext(ITfContext* context, TfEditCookie ec, DWORD caps, std::wstring& text);
++  void RequestTypePickContext(ITfContext* context);
+ 
+   /* ITfActiveLanguageProfileNotifySink */
+   STDMETHODIMP OnActivated(REFCLSID clsid,
+diff --git a/WeaselUI/WeaselPanel.cpp b/WeaselUI/WeaselPanel.cpp
+index 4e52ba8..a0c5e96 100644
+--- a/WeaselUI/WeaselPanel.cpp
++++ b/WeaselUI/WeaselPanel.cpp
+@@ -131,8 +131,46 @@ void WeaselPanel::_CreateLayout() {
+   m_layout = layout;
+ }
+ 
++LRESULT WeaselPanel::OnTypePickRecommendation(UINT, WPARAM, LPARAM lp, BOOL&) {
++  const auto* data = reinterpret_cast<const COPYDATASTRUCT*>(lp);
++  if (!data || data->dwData != 0x5459504b || !data->lpData || data->cbData < 4 ||
++      data->cbData > 8192 || data->cbData % sizeof(wchar_t) || !m_status.composing) return 0;
++  const auto* chars = static_cast<const wchar_t*>(data->lpData);
++  const size_t size = data->cbData / sizeof(wchar_t);
++  if (chars[size - 1] != 0) return 0;
++  std::wstring payload(chars, size - 1);
++  const auto split = payload.find(L'\n');
++  if (split == std::wstring::npos || split > 512) return 0;
++  std::wstring expected;
++  for (const auto& candidate : m_ctx.cinfo.candies) expected += candidate.str + L"\n";
++  if (payload.substr(split + 1) != expected || expected.empty()) return 0;
++  m_typepickLabel = payload.substr(0, split);
++  m_typepickPreedit = m_ctx.preedit;
++  m_typepickCandidates = m_ctx.cinfo;
++  m_typepickShownAt = GetTickCount();
++  Refresh();
++  return 1;
++}
++
++LRESULT WeaselPanel::OnTypePickClear(UINT, WPARAM stamp, LPARAM, BOOL&) {
++  if (static_cast<LONG>(static_cast<DWORD>(stamp) - m_typepickShownAt) < 0) return 0;
++  if (m_ctx.aux.str == m_typepickLabel) m_ctx.aux.clear();
++  m_typepickLabel.clear();
++  Refresh();
++  return 0;
++}
++
+ // 更新界面
+ void WeaselPanel::Refresh() {
++  if (!m_typepickLabel.empty()) {
++    if (m_status.composing && m_typepickPreedit == m_ctx.preedit && m_typepickCandidates == m_ctx.cinfo) {
++      m_ctx.aux.str = m_typepickLabel;
++      m_ctx.aux.attributes.clear();
++    } else {
++      if (m_ctx.aux.str == m_typepickLabel) m_ctx.aux.clear();
++      m_typepickLabel.clear();
++    }
++  }
+   bool should_show_icon =
+       (m_status.ascii_mode || !m_status.composing || !m_ctx.aux.empty());
+   m_candidateCount = min(m_ctx.cinfo.candies.size(), MAX_CANDIDATES_COUNT);
 diff --git a/WeaselUI/WeaselPanel.h b/WeaselUI/WeaselPanel.h
-index 7ad3af7..4059a2a 100644
+index 7ad3af7..776fb7c 100644
 --- a/WeaselUI/WeaselPanel.h
 +++ b/WeaselUI/WeaselPanel.h
-@@ -25,6 +25,7 @@ class WeaselPanel
+@@ -25,7 +25,10 @@ class WeaselPanel
      : public CWindowImpl<WeaselPanel, CWindow, CWeaselPanelTraits>,
        CDoubleBufferImpl<WeaselPanel> {
   public:
 +  DECLARE_WND_CLASS(L"TypePick.Candidate.0.1")
    BEGIN_MSG_MAP(WeaselPanel)
++  MESSAGE_HANDLER(WM_COPYDATA, OnTypePickRecommendation)
++  MESSAGE_HANDLER(WM_APP + 0x381, OnTypePickClear)
    MESSAGE_HANDLER(WM_CREATE, OnCreate)
    MESSAGE_HANDLER(WM_DESTROY, OnDestroy)
+   MESSAGE_HANDLER(WM_DPICHANGED, OnDpiChanged)
+@@ -38,6 +41,8 @@ class WeaselPanel
+   CHAIN_MSG_MAP(CDoubleBufferImpl<WeaselPanel>)
+   END_MSG_MAP()
+ 
++  LRESULT OnTypePickRecommendation(UINT, WPARAM, LPARAM, BOOL&);
++  LRESULT OnTypePickClear(UINT, WPARAM, LPARAM, BOOL&);
+   LRESULT OnCreate(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
+   LRESULT OnDestroy(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
+   LRESULT OnDpiChanged(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
+@@ -104,6 +109,10 @@ class WeaselPanel
+ 
+   void _LayerUpdate(const CRect& rc, CDCHandle dc);
+ 
++  std::wstring m_typepickLabel;
++  weasel::Text m_typepickPreedit;
++  weasel::CandidateInfo m_typepickCandidates;
++  DWORD m_typepickShownAt = 0;
+   weasel::Layout* m_layout;
+   weasel::Context& m_ctx;
+   weasel::Context& m_octx;
 diff --git a/include/RimeWithWeasel.h b/include/RimeWithWeasel.h
-index ab20d8d..d10d51f 100644
+index ab20d8d..08311bf 100644
 --- a/include/RimeWithWeasel.h
 +++ b/include/RimeWithWeasel.h
 @@ -4,6 +4,9 @@
@@ -772,7 +1058,15 @@ index ab20d8d..d10d51f 100644
  
  #include <rime_api.h>
  
-@@ -95,6 +98,7 @@ class RimeWithWeaselHandler : public weasel::RequestHandler {
+@@ -45,6 +48,7 @@ class RimeWithWeaselHandler : public weasel::RequestHandler {
+   virtual BOOL ProcessKeyEvent(weasel::KeyEvent keyEvent,
+                                WeaselSessionId ipc_id,
+                                EatLine eat);
++  virtual DWORD TypePickContext(DWORD kind, DWORD ipc_id, const std::wstring& text);
+   virtual void CommitComposition(WeaselSessionId ipc_id);
+   virtual void ClearComposition(WeaselSessionId ipc_id);
+   virtual void SelectCandidateOnCurrentPage(size_t index,
+@@ -95,6 +99,7 @@ class RimeWithWeaselHandler : public weasel::RequestHandler {
      return m_session_status_map[ipc_id] = SessionStatus();
    }
  
@@ -795,7 +1089,7 @@ index 09625e4..b22e114 100644
  
  #define STRINGIZE(x) #x
 diff --git a/include/WeaselIPC.h b/include/WeaselIPC.h
-index 27bfd63..9f5a1a0 100644
+index 27bfd63..ecd45cc 100644
 --- a/include/WeaselIPC.h
 +++ b/include/WeaselIPC.h
 @@ -6,8 +6,8 @@
@@ -809,6 +1103,30 @@ index 27bfd63..9f5a1a0 100644
  
  #define WEASEL_IPC_METADATA_SIZE 1024
  #define WEASEL_IPC_BUFFER_SIZE (4 * 1024)
+@@ -32,6 +32,7 @@ enum WEASEL_IPC_COMMAND {
+   WEASEL_IPC_SELECT_CANDIDATE_ON_CURRENT_PAGE,
+   WEASEL_IPC_HIGHLIGHT_CANDIDATE_ON_CURRENT_PAGE,
+   WEASEL_IPC_CHANGE_PAGE,
++  WEASEL_IPC_TYPEPICK_CONTEXT,
+   WEASEL_IPC_LAST_COMMAND
+ };
+ 
+@@ -67,6 +68,7 @@ struct RequestHandler {
+                                EatLine eat) {
+     return FALSE;
+   }
++  virtual DWORD TypePickContext(DWORD kind, DWORD session, const std::wstring& text) { return 0; }
+   virtual void CommitComposition(DWORD session_id) {}
+   virtual void ClearComposition(DWORD session_id) {}
+   virtual void SelectCandidateOnCurrentPage(size_t index, DWORD session_id) {}
+@@ -127,6 +129,7 @@ class Client {
+   // 请求服务处理按键消息
+   bool ProcessKeyEvent(KeyEvent const& keyEvent);
+   // 上屏正在編輯的文字
++  DWORD TypePickContext(DWORD kind, const std::wstring& text = L"");
+   bool CommitComposition();
+   // 清除正在編輯的文字
+   bool ClearComposition();
 diff --git a/include/WeaselUtility.h b/include/WeaselUtility.h
 index 742f157..b8026fd 100755
 --- a/include/WeaselUtility.h

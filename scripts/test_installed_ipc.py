@@ -116,6 +116,46 @@ try:
     if window and u.IsWindowVisible(window):raise RuntimeError('AI appeared for disallowed app')
     results['disallowed_app']='no AI popup'
     request(3,sid=sid)
+    sid,_=request(2,body='action=session\nsession.client_app=msedge.exe\nsession.client_type=tsf\n.\n')
+    caps,_=request(17,sid=sid)
+    if caps != 3:raise RuntimeError('Extended host capability negotiation failed')
+    for ch in 'tp':key(sid,ord(ch))
+    time.sleep(.15)
+    if u.IsWindowVisible(window):raise RuntimeError('Unknown scope allowed a custom recommendation')
+    key(sid,0xff1b)
+    request(17,3,sid,'今天\0')
+    for ch in 'tp':key(sid,ord(ch))
+    deadline=time.monotonic()+3
+    while time.monotonic()<deadline and not u.IsWindowVisible(window):time.sleep(.03)
+    label=c.create_unicode_buffer(512);u.GetWindowTextW(window,label,512)
+    if '自定义词' not in label.value:raise RuntimeError('Custom term failed: '+label.value)
+    _,body=key(sid,0xff09)
+    if 'commit=测试项目' not in body:raise RuntimeError('Custom term did not use TSF commit response')
+    results['custom_term_tab']='normal IPC commit'
+    request(17,1,sid)
+    for ch in 'tp':key(sid,ord(ch))
+    time.sleep(.15)
+    if u.IsWindowVisible(window):raise RuntimeError('Sensitive scope displayed a term')
+    _,body=key(sid,0xff09)
+    if 'commit=测试项目' in body:raise RuntimeError('Sensitive scope accepted a stale term')
+    results['sensitive_and_unknown_scope']='blocked'
+    key(sid,0xff1b)
+    request(17,3,sid,'现有文字，\n\0')
+    for ch in 'nihao':key(sid,ord(ch))
+    _,body=key(sid,32)
+    if 'commit=你好' not in body:raise RuntimeError('Extended host normal commit failed')
+    deadline=time.monotonic()+3
+    while time.monotonic()<deadline and not u.IsWindowVisible(window):time.sleep(.03)
+    u.GetWindowTextW(window,label,512)
+    if '短句补全' not in label.value:raise RuntimeError('Phrase completion not shown: '+label.value)
+    _,body=key(sid,0xff09)
+    if 'commit=，很高兴认识你' not in body:raise RuntimeError('Phrase Tab did not commit suffix only: '+body[:500])
+    results['phrase_completion_tab']='suffix only'
+    request(17,3,sid,'移动光标之后\0')
+    _,body=key(sid,0xff09)
+    if 'commit=' in body:raise RuntimeError('Caret move allowed stale phrase')
+    results['caret_move_rejects_completion']=True
+    request(3,sid=sid)
     log=Path(os.environ['APPDATA'])/'TypePick/logs/ai-diagnostics.jsonl'
     records=[json.loads(line) for line in log.read_text(encoding='utf-8').splitlines()]
     if not any(r.get('reason')=='empty_context' for r in records):raise RuntimeError('Missing no-context diagnostic')

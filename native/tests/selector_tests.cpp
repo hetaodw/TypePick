@@ -33,8 +33,9 @@ int main() {
     CHECK(!ValidSnapshot(Snapshot{}));
     CHECK(!ParseConfig(nlohmann::json::object()).enabled);
     bool rejected = false;
-    try { ParseConfig({{"allowed_apps", {"chrome.exe"}}}); } catch (...) { rejected = true; }
+    try { ParseConfig({{"allowed_apps", {"unknown.exe"}}}); } catch (...) { rejected = true; }
     CHECK(rejected);
+    CHECK(ParseConfig({{"allowed_apps", {"Chrome.exe", "winword.exe", "weixin.exe"}}}).allowed_apps[0] == "chrome.exe");
     auto request = MakeRequest(Sample(), c);
     CHECK(request["questions"]["candidate"]["criteria"]["c1"] == "烟酒");
     CHECK(request["questions"]["candidate"]["criteria"].contains("abstain"));

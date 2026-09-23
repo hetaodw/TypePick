@@ -17,6 +17,9 @@ Config ParseConfig(const nlohmann::json& value) {
   if (!value.is_object()) throw std::invalid_argument("config must be an object");
   c.enabled = value.value("enabled", false);
   c.show_all_confidences = value.value("show_all_confidences", false);
+  c.surrounding_context = value.value("surrounding_context", true);
+  c.personal_learning = value.value("personal_learning", true);
+  c.phrase_completion = value.value("phrase_completion", true);
   c.mode = value.value("mode", c.mode);
   c.model = value.value("model", c.model);
   c.allowed_apps = value.value("allowed_apps", c.allowed_apps);
@@ -29,11 +32,12 @@ Config ParseConfig(const nlohmann::json& value) {
       c.timeout_ms > 3000 || !std::isfinite(c.min_confidence) ||
       c.min_confidence < 0 || c.min_confidence > 1 || !std::isfinite(c.min_margin) ||
       c.min_margin < 0 || c.min_margin > 1) throw std::invalid_argument("invalid config limits");
-  // MVP: only the known plain-text Notepad host may send cloud requests.
-  // Broader app support needs a TSF input-scope signal before enabling it.
+  // Explicitly supported hosts only. New hosts also require a fresh safe TSF scope.
   for (auto& app : c.allowed_apps) {
     std::transform(app.begin(), app.end(), app.begin(), [](unsigned char ch) { return (char)std::tolower(ch); });
-    if (app != "notepad.exe") throw std::invalid_argument("MVP only supports notepad.exe for AI");
+    if (app != "notepad.exe" && app != "msedge.exe" && app != "chrome.exe" &&
+        app != "winword.exe" && app != "weixin.exe" && app != "wechat.exe")
+      throw std::invalid_argument("unsupported host");
   }
   return c;
 }

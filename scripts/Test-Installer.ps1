@@ -12,7 +12,9 @@ $server = $null
 try {
     $user = Join-Path $env:APPDATA 'TypePick'
     New-Item -ItemType Directory -Force -Path $user | Out-Null
-    '{"enabled":true,"mode":"demo","debounce_ms":50,"timeout_ms":1500}' | Set-Content -LiteralPath "$user/typepick.json" -Encoding utf8NoBOM
+    '{"enabled":true,"mode":"demo","debounce_ms":50,"timeout_ms":1500,"allowed_apps":["notepad.exe","msedge.exe"]}' | Set-Content -LiteralPath "$user/typepick.json" -Encoding utf8NoBOM
+    '[{"input":"tp","text":"测试项目"}]' | Set-Content -LiteralPath "$user/terms.json" -Encoding utf8NoBOM
+    '["你好，很高兴认识你"]' | Set-Content -LiteralPath "$user/phrases.json" -Encoding utf8NoBOM
     $selfTest = Start-Process -FilePath "$install/TypePick.exe" -ArgumentList '--self-test' -WindowStyle Hidden -PassThru -Wait
     if ($selfTest.ExitCode -ne 0) { throw 'Credential Manager self-test failed.' }
     $server = Start-Process -FilePath "$install/TypePickServer.exe" -WindowStyle Hidden -PassThru
