@@ -745,14 +745,15 @@ index c5d28b9..3332552 100644
 -    {0xa9, 0x6d, 0xce, 0xc7, 0xc5, 0x0e, 0x0e, 0xae}};
 +const GUID GUID_IME_MODE_PRESERVED_KEY = {0xe54c4535, 0x6993, 0x54d6, {0xbf, 0x45, 0x0f, 0x69, 0xed, 0x25, 0xab, 0x81}};
 diff --git a/WeaselTSF/KeyEventSink.cpp b/WeaselTSF/KeyEventSink.cpp
-index 6a18c13..d9089bd 100644
+index 6a18c13..c5bd217 100644
 --- a/WeaselTSF/KeyEventSink.cpp
 +++ b/WeaselTSF/KeyEventSink.cpp
-@@ -3,6 +3,86 @@
+@@ -3,6 +3,87 @@
  #include "WeaselTSF.h"
  #include <KeyEvent.h>
  #include "CandidateList.h"
 +#include "EditSession.h"
++#include <initguid.h>
 +#include <inputscope.h>
 +
 +// Read only in a synchronous TSF edit session; never scrape window text.
@@ -835,7 +836,7 @@ index 6a18c13..d9089bd 100644
  
  static weasel::KeyEvent prevKeyEvent;
  static BOOL prevfEaten = FALSE;
-@@ -92,6 +172,7 @@ STDMETHODIMP WeaselTSF::OnTestKeyDown(ITfContext* pContext,
+@@ -92,6 +173,7 @@ STDMETHODIMP WeaselTSF::OnTestKeyDown(ITfContext* pContext,
      *pfEaten = TRUE;
      return S_OK;
    }
@@ -843,7 +844,7 @@ index 6a18c13..d9089bd 100644
    _ProcessKeyEvent(wParam, lParam, pfEaten);
    _UpdateComposition(pContext);
    if (*pfEaten)
-@@ -108,6 +189,7 @@ STDMETHODIMP WeaselTSF::OnKeyDown(ITfContext* pContext,
+@@ -108,6 +190,7 @@ STDMETHODIMP WeaselTSF::OnKeyDown(ITfContext* pContext,
      _fTestKeyDownPending = FALSE;
      *pfEaten = TRUE;
    } else {
@@ -914,6 +915,52 @@ index ec44839..cc98479 100644
    CHECK_HR(register_profile(TEXTSERVICE_LANGID_HANS, hkl_hans, hansEnable));
    CHECK_HR(register_profile(TEXTSERVICE_LANGID_HANT, hkl_hant, hantEnable));
    CHECK_HR(register_profile(TEXTSERVICE_LANGID_HONGKONG, NULL, hkEnable));
+diff --git a/WeaselTSF/TextEditSink.cpp b/WeaselTSF/TextEditSink.cpp
+index 4ca30cc..593a547 100644
+--- a/WeaselTSF/TextEditSink.cpp
++++ b/WeaselTSF/TextEditSink.cpp
+@@ -20,7 +20,7 @@ static BOOL IsRangeCovered(TfEditCookie ec,
+ STDMETHODIMP WeaselTSF::OnEndEdit(ITfContext* pContext,
+                                   TfEditCookie ecReadOnly,
+                                   ITfEditRecord* pEditRecord) {
+-  BOOL fSelectionChanged;
++  BOOL fSelectionChanged = FALSE;
+   IEnumTfRanges* pEnumTextChanges;
+   ITfRange* pRange;
+ 
+@@ -41,10 +41,20 @@ STDMETHODIMP WeaselTSF::OnEndEdit(ITfContext* pContext,
+             _EndComposition(pContext, true);
+           pRangeComposition->Release();
+         }
++        tfSelection.range->Release();
+       }
+     }
+   }
+ 
++  if (fSelectionChanged && !_IsComposing()) {
++    const DWORD caps = m_client.TypePickContext(0);
++    if (caps & 1) {
++      std::wstring text;
++      const DWORD kind = CaptureTypePickContext(pContext, ecReadOnly, caps, text);
++      m_client.TypePickContext(kind, text);
++    }
++  }
++
+   /* text modification? */
+   if (pEditRecord->GetTextAndPropertyUpdates(TF_GTP_INCL_TEXT, NULL, 0,
+                                              &pEnumTextChanges) == S_OK) {
+diff --git a/WeaselTSF/ThreadMgrEventSink.cpp b/WeaselTSF/ThreadMgrEventSink.cpp
+index cc49a0f..1e6d06e 100644
+--- a/WeaselTSF/ThreadMgrEventSink.cpp
++++ b/WeaselTSF/ThreadMgrEventSink.cpp
+@@ -11,6 +11,7 @@ STDMETHODIMP WeaselTSF::OnUninitDocumentMgr(ITfDocumentMgr* pDocMgr) {
+ 
+ STDMETHODIMP WeaselTSF::OnSetFocus(ITfDocumentMgr* pDocMgrFocus,
+                                    ITfDocumentMgr* pDocMgrPrevFocus) {
++  if (pDocMgrFocus != pDocMgrPrevFocus) m_client.FocusOut();
+   _InitTextEditSink(pDocMgrFocus);
+ 
+   com_ptr<ITfDocumentMgr> pCandidateListDocumentMgr;
 diff --git a/WeaselTSF/WeaselTSF.cpp b/WeaselTSF/WeaselTSF.cpp
 index 53290b0..893e344 100644
 --- a/WeaselTSF/WeaselTSF.cpp
