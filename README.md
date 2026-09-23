@@ -32,7 +32,7 @@ cd TypePick
 ./scripts/Test-Rime.ps1
 ```
 
-第二个脚本自动下载并校验固定版本的官方 librime。它运行六项真实引擎测试：两种上下文的 Tab 提交、编辑未上屏拼音，以及失焦、输入变化、应用变化后的拒绝提交。测试使用自编的小词库和明确标注的 **demo 演示推荐**，不调用 Jev，也不注册系统输入法。
+第二个脚本自动下载并校验固定版本的官方 librime。它运行七项真实引擎测试：两种上下文的 Tab 提交、编辑未上屏拼音，失焦、输入变化、应用变化后的拒绝提交，以及本地补全与自定义词的上屏和撤销。测试使用自编的小词库和明确标注的 **demo 演示推荐**，不调用 Jev，也不注册系统输入法。
 
 测试结果写入 `build/probes/<本次编号>/results.json`。测试工具为 `build/core-native/TypePickProbe.exe`。
 
@@ -69,3 +69,4 @@ TypePick 原创代码采用 **AGPL-3.0-only**，全文见 [LICENSE](LICENSE)。�
 小狼毫保留其 GPLv3 声明，librime 保留 BSD 声明，其他依赖保留各自条款。GPLv3 与 AGPLv3 的组合按两份许可证第 13 条处理，不把上游代码声明为 TypePick 独有。详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 输入法生成的普通文字和文档不因使用 TypePick 而适用 AGPL。关于页署名遵循标准许可证要求；本项目没有另加“必须展示 TypePick 品牌”的自定义条款。
+

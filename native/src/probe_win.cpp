@@ -11,7 +11,7 @@ int wmain(int argc, wchar_t** argv) {
     std::map<std::wstring, std::wstring> args;
     for (int i = 1; i < argc; ++i) {
       const std::wstring name = argv[i];
-      if (name == L"--demo" || name == L"--live" || name == L"--bridge-smoke" || name == L"--edit-preedit" || name == L"--show-all-confidences") args[name] = L"1";
+      if (name == L"--demo" || name == L"--live" || name == L"--bridge-smoke" || name == L"--local-smoke" || name == L"--edit-preedit" || name == L"--show-all-confidences") args[name] = L"1";
       else if (i + 1 < argc) args[name] = argv[++i];
       else throw std::runtime_error("missing argument");
     }
@@ -50,7 +50,41 @@ int wmain(int argc, wchar_t** argv) {
     const auto input = Utf8(args.count(L"--input") ? args[L"--input"] : L"yanjiu");
     const auto context = Utf8(args.count(L"--context") ? args[L"--context"] : L"这个问题需要进一步");
     nlohmann::json result = {{"engine", "librime"}, {"input", input}, {"context", context}};
-    if (args.count(L"--bridge-smoke")) {
+    if (args.count(L"--local-smoke")) {
+      { std::ofstream f(user_path / "typepick.json"); f << R"({"enabled":true,"mode":"demo","debounce_ms":0})"; }
+      { std::ofstream f(user_path / "terms.json"); f << R"([{"input":"tp","text":"测试项目"}])"; }
+      WeaselBridge bridge(api, user_path);
+      auto pump = [&]() {
+        const auto until = Clock::now() + std::chrono::milliseconds(150);
+        while (Clock::now() < until) {
+          MSG msg;
+          while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageW(&msg); }
+          Sleep(2);
+        }
+      };
+      auto phrase = [&]() { bridge.UpdateContext(sid, 3, L""); bridge.OnCommit(sid, "收到"); };
+      phrase();
+      if (bridge.BeforeKey(sid, 0xff09, 0) || !bridge.TakeCommit(sid).empty()) throw std::runtime_error("Unseen phrase was accepted");
+      phrase(); pump();
+      if (!bridge.BeforeKey(sid, 0xff09, 0) || bridge.TakeCommit(sid) != "，谢谢") throw std::runtime_error("Phrase suffix commit failed");
+      bridge.BeforeKey(sid, 0xff09, 0x4000);
+      phrase(); pump();
+      if (!bridge.BeforeKey(sid, 0xff1b, 0) || !bridge.BeforeKey(sid, 0xff1b, 0x4000)) throw std::runtime_error("Completion Escape leaked to host");
+      if (bridge.BeforeKey(sid, 0xff09, 0)) throw std::runtime_error("Dismissed phrase accepted");
+      phrase(); pump(); bridge.UpdateContext(sid, 3, L"其他前文");
+      if (bridge.BeforeKey(sid, 0xff09, 0)) throw std::runtime_error("Moved caret accepted phrase");
+      bridge.UpdateContext(sid, 3, L"测试");
+      for (char ch : std::string("tp")) { bridge.BeforeKey(sid, ch, 0); api->process_key(sid, ch, 0); bridge.AfterKey(sid, ch, 0); }
+      if (bridge.BeforeKey(sid, 0xff09, 0)) throw std::runtime_error("Unseen custom term accepted");
+      bridge.AfterKey(sid, 'p', 0); pump();
+      if (!bridge.BeforeKey(sid, 0xff09, 0) || bridge.TakeCommit(sid) != "测试项目") throw std::runtime_error("Custom commit failed");
+      if (*api->get_input(sid)) throw std::runtime_error("Custom term left stale composition");
+      bridge.UpdateContext(sid, 1, L""); bridge.OnCommit(sid, "收到"); pump();
+      for (char ch : std::string("tp")) { bridge.BeforeKey(sid, ch, 0); api->process_key(sid, ch, 0); bridge.AfterKey(sid, ch, 0); }
+      pump();
+      if (bridge.BeforeKey(sid, 0xff09, 0)) throw std::runtime_error("Denied scope lost after commit");
+      result["local_features"] = "unseen-result guard, suffix commit, custom commit, caret rejection, denied scope persistence";
+    } else if (args.count(L"--bridge-smoke")) {
       std::ofstream f(user_path / "typepick.json");
       f << R"({"enabled":true,"mode":"demo","debounce_ms":0})"; f.close();
       {

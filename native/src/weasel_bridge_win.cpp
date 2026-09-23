@@ -43,6 +43,7 @@ struct WeaselBridge::Impl {
   std::wstring label;
   std::optional<Recommendation> displayed;
   bool swallowed_tab = false;
+  bool swallowed_escape = false;
   uint64_t displayed_revision = 0;
   PersonalStore personal;
   std::filesystem::path personal_path;
@@ -155,6 +156,7 @@ struct WeaselBridge::Impl {
     context.clear();
     session = 0;
     swallowed_tab = false;
+    swallowed_escape = false;
     scope_received = scope_safe = has_surrounding = false;
     before_key = {}; pending_commit.clear();
   }
@@ -261,13 +263,19 @@ bool WeaselBridge::BeforeKey(RimeSessionId sid, int key, int mask) {
   const bool release = (mask & WeaselKeyReleaseMask) != 0;
   if (release) {
     if (key == 0xff09 && impl_->swallowed_tab) { impl_->swallowed_tab = false; return true; }
+    if (key == 0xff1b && impl_->swallowed_escape) { impl_->swallowed_escape = false; return true; }
     return false;
   }
   if (impl_->session != sid) impl_->Reset("session_changed");
   impl_->session = sid;
   const bool no_modifiers = (mask & 0xff) == 0;
   impl_->before_key = impl_->Capture(sid);
-  if (key == 0xff09 && no_modifiers && !impl_->completion.empty() && impl_->Allowed(sid)) {
+  if (key == 0xff1b && no_modifiers && !impl_->completion_pending &&
+      !impl_->completion.empty() && !impl_->custom_snapshot && impl_->Allowed(sid)) {
+    impl_->selector->Invalidate(); impl_->Hide(); impl_->swallowed_escape = true;
+    return true;
+  }
+  if (key == 0xff09 && no_modifiers && !impl_->completion_pending && !impl_->completion.empty() && impl_->Allowed(sid)) {
     const char* raw = impl_->api->get_input(sid);
     if (impl_->context == impl_->completion_context &&
         (impl_->custom_snapshot ? impl_->Capture(sid) == *impl_->custom_snapshot : (!raw || !*raw))) {
@@ -278,7 +286,7 @@ bool WeaselBridge::BeforeKey(RimeSessionId sid, int key, int mask) {
       return true;
     }
   }
-  if (key == 0xff09 && no_modifiers && impl_->displayed) {
+  if (key == 0xff09 && no_modifiers && !impl_->local_pending && impl_->displayed) {
     const auto recommendation = *impl_->displayed;
     const auto current = impl_->Capture(sid);
     impl_->selector->Invalidate();
@@ -338,7 +346,10 @@ void WeaselBridge::AfterKey(RimeSessionId sid, int key, int mask) {
 }
 void WeaselBridge::OnCommit(RimeSessionId sid, const char* text) {
   impl_->selector->Invalidate(); impl_->Hide();
-  if (!text || !impl_->Allowed(sid)) { impl_->Reset(); return; }
+  if (!text || !impl_->Allowed(sid)) {
+    // A commit in a denied field must not restore the legacy Notepad fallback.
+    impl_->context.clear(); impl_->before_key = {}; return;
+  }
   if (impl_->session != sid) impl_->context.clear();
   impl_->session = sid;
   const auto& prior = impl_->before_key;
