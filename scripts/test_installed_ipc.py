@@ -101,6 +101,13 @@ try:
     if window and u.IsWindowVisible(window):raise RuntimeError('AI appeared for disallowed app')
     results['disallowed_app']='no AI popup'
     request(3,sid=sid)
+    log=Path(os.environ['APPDATA'])/'TypePick/logs/ai-diagnostics.jsonl'
+    records=[json.loads(line) for line in log.read_text(encoding='utf-8').splitlines()]
+    if not any(r.get('reason')=='empty_context' for r in records):raise RuntimeError('Missing no-context diagnostic')
+    if not any(r.get('event')=='request_finished' for r in records):raise RuntimeError('Missing request diagnostic')
+    if not any(r.get('event')=='displayed' and r.get('shown') for r in records):raise RuntimeError('Missing popup diagnostic')
+    if any(any(key in r for key in ('context','input','candidates','api_key')) for r in records):raise RuntimeError('Sensitive diagnostic field')
+    results['ai_diagnostics']='metadata only; empty-context, request and display events verified'
 finally:
     k.CloseHandle(handle)
 path=Path('build/installer-test-results.json')

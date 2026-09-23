@@ -75,6 +75,7 @@ Decision ParseDecision(const nlohmann::json& j, size_t count, const Config& c) {
     }
     if (std::abs(total - 1) > 0.02 || chosen < 0) return d;
     d.confidence = confidence;
+    d.margin = chosen - next;
     if (choice == "abstain") { d.status = "abstained"; return d; }
     if (confidence < c.min_confidence || chosen - next < c.min_margin) {
       d.status = "uncertain"; return d;
@@ -84,7 +85,11 @@ Decision ParseDecision(const nlohmann::json& j, size_t count, const Config& c) {
   } catch (const nlohmann::json::exception&) {}
   return d;
 }
-Selector::Selector(Config c, Transport t) : config_(std::move(c)), transport_(std::move(t)), worker_(&Selector::Work, this) {}
+Selector::Selector(Config c, Transport t, Diagnostic diagnostic)
+    : config_(std::move(c)), transport_(std::move(t)), diagnostic_(std::move(diagnostic)), worker_(&Selector::Work, this) {}
+void Selector::Emit(const nlohmann::json& event) noexcept {
+  try { if (diagnostic_) diagnostic_(event); } catch (...) {}
+}
 Selector::~Selector() {
   { std::lock_guard<std::mutex> lock(mutex_); stop_ = true; }
   cv_.notify_all();
@@ -98,12 +103,18 @@ uint64_t Selector::Submit(Snapshot s) {
   // A frequent word alone is not a contextual recommendation.
   pending_ = config_.enabled && ValidSnapshot(snapshot_) &&
       snapshot_.context.find_first_not_of(" \t\r\n") != std::string::npos;
+  Emit({{"event", pending_ ? "scheduled" : "skipped"}, {"revision", revision_},
+        {"reason", pending_ ? "debounce" : (!config_.enabled ? "disabled" :
+          (!ValidSnapshot(snapshot_) ? "invalid_snapshot" : "empty_context"))},
+        {"context_bytes", snapshot_.context.size()}, {"input_bytes", snapshot_.input.size()},
+        {"candidate_count", snapshot_.candidates.size()}});
   due_ = Clock::now() + std::chrono::milliseconds(config_.debounce_ms);
   cv_.notify_all();
   return revision_;
 }
 void Selector::Invalidate() {
   std::lock_guard<std::mutex> lock(mutex_);
+  if (pending_ || ready_) Emit({{"event", "invalidated"}, {"revision", revision_}});
   ++revision_;
   pending_ = false;
   ready_.reset();
@@ -125,6 +136,9 @@ void Selector::Work() {
     const Snapshot input = snapshot_;
     pending_ = false;
     lock.unlock();
+    Emit({{"event", "request_started"}, {"revision", version},
+          {"context_bytes", input.context.size()}, {"input_bytes", input.input.size()},
+          {"candidate_count", input.candidates.size()}});
     const auto start = Clock::now();
     Decision result;
     try { result = transport_(input, config_); }
@@ -137,6 +151,10 @@ void Selector::Work() {
       result.index.reset(); result.status = "invalid_response";
     }
     lock.lock();
+    Emit({{"event", "request_finished"}, {"revision", version}, {"status", result.status},
+          {"confidence", result.confidence}, {"margin", result.margin},
+          {"elapsed_ms", std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now()-start).count()},
+          {"stale", stop_ || revision_ != version}});
     if (!stop_ && revision_ == version) ready_ = Recommendation{version, input, result};
   }
 }

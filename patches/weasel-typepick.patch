@@ -1,5 +1,5 @@
 diff --git a/RimeWithWeasel/RimeWithWeasel.cpp b/RimeWithWeasel/RimeWithWeasel.cpp
-index 709cd7e..7a301e4 100644
+index 709cd7e..fa48bd2 100644
 --- a/RimeWithWeasel/RimeWithWeasel.cpp
 +++ b/RimeWithWeasel/RimeWithWeasel.cpp
 @@ -1,6 +1,8 @@
@@ -51,7 +51,7 @@ index 709cd7e..7a301e4 100644
  }
  
  DWORD RimeWithWeaselHandler::RemoveSession(WeaselSessionId ipc_id) {
-+  if (m_typepick) m_typepick->Reset();
++  if (m_typepick) m_typepick->Reset("session_removed");
    if (m_ui)
      m_ui->Hide();
    if (m_disabled)
@@ -79,7 +79,7 @@ index 709cd7e..7a301e4 100644
  }
  
  void RimeWithWeaselHandler::CommitComposition(WeaselSessionId ipc_id) {
-+  if (m_typepick) m_typepick->Reset();
++  if (m_typepick) m_typepick->Reset("composition_committed");
    DLOG(INFO) << "Commit composition: ipc_id = " << ipc_id;
    if (m_disabled)
      return;
@@ -87,7 +87,7 @@ index 709cd7e..7a301e4 100644
  }
  
  void RimeWithWeaselHandler::ClearComposition(WeaselSessionId ipc_id) {
-+  if (m_typepick) m_typepick->Reset();
++  if (m_typepick) m_typepick->Reset("composition_cleared");
    DLOG(INFO) << "Clear composition: ipc_id = " << ipc_id;
    if (m_disabled)
      return;
@@ -119,7 +119,7 @@ index 709cd7e..7a301e4 100644
  }
  
  void RimeWithWeaselHandler::FocusIn(DWORD client_caps, WeaselSessionId ipc_id) {
-+  if (m_typepick) m_typepick->Reset();
++  if (m_typepick) m_typepick->Reset("focus_in");
    DLOG(INFO) << "Focus in: ipc_id = " << ipc_id
               << ", client_caps = " << client_caps;
    if (m_disabled)
@@ -127,7 +127,7 @@ index 709cd7e..7a301e4 100644
  }
  
  void RimeWithWeaselHandler::FocusOut(DWORD param, WeaselSessionId ipc_id) {
-+  if (m_typepick) m_typepick->Reset();
++  if (m_typepick) m_typepick->Reset("focus_out");
    DLOG(INFO) << "Focus out: ipc_id = " << ipc_id;
    if (m_ui)
      m_ui->Hide();
@@ -136,7 +136,7 @@ index 709cd7e..7a301e4 100644
               << "), ipc_id = " << ipc_id
               << ", m_active_session = " << m_active_session;
 +  if (m_typepick) {
-+    if (m_active_session != ipc_id) m_typepick->Reset();
++    if (m_active_session != ipc_id) m_typepick->Reset("position_session_changed");
 +    m_typepick->Position(rc);
 +  }
    if (m_ui)
@@ -146,7 +146,7 @@ index 709cd7e..7a301e4 100644
  void RimeWithWeaselHandler::SetOption(WeaselSessionId ipc_id,
                                        const std::string& opt,
                                        bool val) {
-+  if (m_typepick) m_typepick->Reset();
++  if (m_typepick) m_typepick->Reset("option_changed");
    // from no-session client, not actual typing session
    if (!ipc_id) {
      if (m_global_ascii_mode && opt == "ascii_mode") {

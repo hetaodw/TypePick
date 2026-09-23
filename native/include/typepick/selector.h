@@ -31,6 +31,7 @@ struct Decision {
   std::optional<size_t> index;
   double confidence = 0;
   std::string status = "idle";
+  double margin = 0;
 };
 struct Recommendation {
   uint64_t revision = 0;
@@ -42,11 +43,12 @@ bool ValidSnapshot(const Snapshot& snapshot);
 nlohmann::json MakeRequest(const Snapshot& snapshot, const Config& config);
 Decision ParseDecision(const nlohmann::json& value, size_t count, const Config& config);
 using Transport = std::function<Decision(const Snapshot&, const Config&)>;
+using Diagnostic = std::function<void(const nlohmann::json&)>;
 
 // Only the worker calls Transport. The IME thread never waits for HTTP.
 class Selector {
  public:
-  Selector(Config config, Transport transport);
+  Selector(Config config, Transport transport, Diagnostic diagnostic = {});
   ~Selector();
   Selector(const Selector&) = delete;
   Selector& operator=(const Selector&) = delete;
@@ -55,8 +57,10 @@ class Selector {
   std::optional<Recommendation> Poll() const;
  private:
   void Work();
+  void Emit(const nlohmann::json& event) noexcept;
   Config config_;
   Transport transport_;
+  Diagnostic diagnostic_;
   mutable std::mutex mutex_;
   std::condition_variable cv_;
   bool stop_ = false, pending_ = false;
